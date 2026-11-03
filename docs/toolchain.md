@@ -1,8 +1,8 @@
-# BiReader — Toolchain (Фаза 0, шаг 0.2)
+# BiliReader — Toolchain (Фаза 0, шаг 0.2)
 
 **Дата фиксации:** 2026-11-03
 **Хост:** Linux Mint 22.2 (Zara), база Ubuntu 24.04 (noble), kernel 7.0.0-42-generic, x86_64
-**Проверка:** `bash scripts/bireader-check-toolchain.sh`
+**Проверка:** `bash scripts/bilireader-check-toolchain.sh`
 
 ## Фактические версии (после установки)
 
@@ -103,7 +103,7 @@ RUSTUP_USE_CURL=1 rustup toolchain install stable --profile minimal   # -> 1.99.
 ## Проверка
 
 ```bash
-bash scripts/bireader-check-toolchain.sh
+bash scripts/bilireader-check-toolchain.sh
 ```
 
 Скрипт печатает строки `OK <tool> <version>` / `FAIL <tool> <причина>` / `SKIP <tool> <причина>`

@@ -1,4 +1,4 @@
-# BiReader — Baseline Linux (шаг 0.3)
+# BiliReader — Baseline Linux (шаг 0.3)
 
 **Дата:** 2026-11-03
 **Хост:** Linux Mint 22.2 (Ubuntu 24.04 base), x86_64, 16 CPU, 15 GiB RAM
@@ -9,7 +9,7 @@ JS-часть baseline проверена и проходит (tsc + vitest).
 
 - Свободно на `/` до установки зависимостей: **17 ГиБ** (порог плана — не менее 8 ГиБ, пройден).
 - Node v24.22.2, pnpm 11.1.1, rustc 1.99.1 (см. `docs/toolchain.md`).
-- Ревизия кода: `upstream/main@7a0e98f53` (`bireader/main`).
+- Ревизия кода: `upstream/main@7a0e98f53` (`bilireader/main`).
 
 ## Выполненные шаги
 
@@ -96,7 +96,7 @@ cmake ninja-build patchelf
 `libglib2.0-dev` в CI-списке не указан, потому что он предустановлен на GitHub-раннерах; на этом
 хосте его нет — именно на нём упала сборка (`glib-sys`).
 
-Проверка: `bash scripts/bireader-check-toolchain.sh` → 12 FAIL, exit 1.
+Проверка: `bash scripts/bilireader-check-toolchain.sh` → 12 FAIL, exit 1.
 `apt-get install -y cmake` → `E: Could not open lock file /var/lib/dpkg/lock-frontend (13: Permission denied)`.
 `sudo` в неинтерактивной сессии недоступен (пароль неизвестен, харнесс блокирует вызов).
 

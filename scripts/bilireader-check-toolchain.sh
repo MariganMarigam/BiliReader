@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BiReader toolchain gate (Phase 0, step 0.2).
+# BiliReader toolchain gate (Phase 0, step 0.2).
 #
 # Checks the tool versions and system libraries required for the Linux Tauri/CEF
 # baseline build. Prints one line per check:
@@ -8,7 +8,7 @@
 #   SKIP <tool> <reason>
 # and exits 1 if any check failed.
 #
-# Usage: bash scripts/bireader-check-toolchain.sh
+# Usage: bash scripts/bilireader-check-toolchain.sh
 
 set -uo pipefail
 

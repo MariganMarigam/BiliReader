@@ -1,4 +1,7 @@
 fork=MariganMarigam/readest
+project=BiliReader
+repo=MariganMarigam/BiliReader
+local_dir=/home/codexrescriptus/devel/BiReader
 upstream_readest=upstream/main@7a0e98f53
 foliate=readest/foliate-js@0c7a0ed
 bootstrap_date=2026-11-03
