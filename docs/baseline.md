@@ -2,8 +2,10 @@
 
 **Дата:** 2026-11-03
 **Хост:** Linux Mint 22.2 (Ubuntu 24.04 base), x86_64, 16 CPU, 15 GiB RAM
-**Статус:** ⚠️ НЕ ВЫПОЛНЕН — сборка падает на отсутствующих системных dev-пакетах (нет root);
-JS-часть baseline проверена и проходит (tsc + vitest).
+**Статус:** ✅ ВЫПОЛНЕН повторным прогоном после установки системных dev-пакетов —
+`.AppImage`, `.deb`, `.rpm` собраны, приложение запускается (см. раздел
+«Повторный прогон: сборка выполнена» в конце файла). Раздел ниже фиксирует
+первый, неудачный прогон и оставлен как история.
 
 ## Условия запуска
 
@@ -116,3 +118,126 @@ cmake ninja-build patchelf
    `pnpm --filter @readest/readest-app exec dotenv -e .env -- vitest run src/__tests__/utils/misc.test.ts`.
 
 > Пункт 5 требует интерактивной работы с GUI — в автоматическом запуске не выполняется.
+
+---
+
+# Повторный прогон: сборка выполнена (2026-11-03)
+
+Системные dev-пакеты установлены, блокер первого прогона снят. Проверенные версии
+через `pkg-config`: `glib-2.0 2.80.0`, `gtk+-3.0 3.24.41`, `webkit2gtk-4.1 2.52.6`,
+`javascriptcoregtk-4.1 2.52.6`, `libsoup-3.0 3.4.4`, `alsa 1.2.11`, `fontconfig 2.15.0`,
+`ayatana-appindicator3-0.1 0.5.90`, `librsvg-2.0 2.58.0`; `cmake 3.x`, `ninja`, `patchelf`,
+`libclang-18` (`/usr/lib/llvm-18/lib`).
+
+## Команда сборки
+
+Из `apps/readest-app`, как в CI (`.github/workflows/nightly.yml`, шаг
+«build desktop bundles»):
+
+```bash
+cd apps/readest-app
+TAURI_CEF_CARGO=1 STRACE_MODE=0 pnpm tauri build
+```
+
+Без `TAURI_SIGNING_PRIVATE_KEY` добавляется `--no-sign` (иначе бандлер падает после
+успешной упаковки, см. отклонение 4) — именно это делает
+`scripts/bilireader-build-linux.sh`.
+
+`pnpm tauri` — это `apps/readest-app/scripts/tauri.mjs`: на Linux он подменяет
+`Cargo.lock` на `Cargo.cef.lock`, добавляет `--features cef`, `--no-default-features` и
+`--config src-tauri/.cargo/cef.toml`. Скрипт `build-linux-x64` из `package.json` не
+используется: он требует отсутствующий `.env.tauri.local`. Оборачивает всё
+`scripts/bilireader-build-linux.sh`.
+
+Один раз перед сборкой нужен CEF-CLI из readest/tauri (то же, что делает CI):
+
+```bash
+cargo install tauri-cli --git https://github.com/readest/tauri \
+  --rev 6beeb209b5514f597a26f48b7a5b9fe4c59b5f12 --locked --force   # 633 c, rc=0
+```
+
+Без него `pnpm tauri` берёт npm-пакет `@tauri-apps/cli-cef@3.0.0-alpha.27`, и сборка
+AppImage ломается по двум причинам, обе воспроизведены (см. «Отклонения»).
+
+## Время и результат
+
+| Прогон | Команда | Время | rc | Итог |
+|---|---|---|---|---|
+| 1 | `pnpm tauri build` (npm `cli-cef`) | **36 мин 27 с** | 1 | `.deb` + `.rpm` собраны; AppImage завис в quick-sharun, затем `404` на `lib/anylinux.c` |
+| 2 | `TAURI_CEF_CARGO=1 STRACE_MODE=0 pnpm tauri build` | **10 мин 21 с** | 1 | Rust `Finished release in 2m45s`; `.deb` + `.rpm` пересобраны; AppImage упал на скачивании uruntime (DNS) |
+| 3 | только упаковка AppImage (`quick-sharun --make-appimage`, локальные `RUNTIME`/`DWARFS_CMD`) | **53 с** | 0 | `BiliReader_0.12.16_amd64.AppImage` создан |
+
+Итого активного времени: ~21 мин 47 с (633 + 621 + 53 с), считая установку CLI.
+Холодная компиляция Rust в прогоне 1 заняла 15 мин 48 с; повторные — 2 мин 45 с
+(кэш `target/`).
+
+## Артефакты
+
+`target/release/bundle/` (размеры — байты, `du -h`):
+
+| Файл | Размер |
+|---|---|
+| `appimage/BiliReader_0.12.16_amd64.AppImage` | 267 367 506 (255 МиБ) |
+| `deb/BiliReader_0.12.16_amd64.deb` | 179 409 342 (171 МиБ) |
+| `rpm/BiliReader-0.12.16-1.x86_64.rpm` | 142 599 787 (136 МиБ) |
+
+`bundle.targets` в `src-tauri/tauri.conf.json` = `"all"`, поэтому собираются все три
+формата. Внутри `.deb` — пакет `bili-reader`, бинарь `/usr/bin/readest`; CEF
+(`libcef.so`, 268 МБ) лежит в `/usr/share/BiliReader/`, то есть пакет самодостаточен.
+
+## Проверка запуска (smoke, без интерактива)
+
+```bash
+cd target/release/bundle/appimage
+DISPLAY=:0 timeout 25 ./BiliReader_0.12.16_amd64.AppImage
+```
+
+- **rc = 124** — процесс дожил до таймаута (25 с) и был снят `timeout`; panic в stderr нет.
+- Окно создаётся: `wmctrl -l` → `Readest` 1280x800; скриншот рабочего стола показывает
+  экран библиотеки («Start your library», кнопка **Import Books**, поиск, «Sign in to sync»).
+- В stderr — `ERROR:cef/libcef/browser/browser_info_manager.cc: Timeout of new browser info
+  response for frame ...` (по одной строке на кадр) и `Gtk-Message: Failed to load module
+  "xapp-gtk3-module"`. На отрисовку не влияют (окно отрисовано), но в отчёт о багах их
+  стоит прикладывать.
+- Тот же бинарь из распакованного `.deb` (`usr/share/BiliReader/readest`) ведёт себя
+  одинаково: rc=124, окно есть.
+- После запуска создан `~/.local/share/com.bilireader.app/Readest/Books/` — путь из
+  `docs/manual-test.md` (B12) подтверждён.
+
+## Диск
+
+До сборки — **12 ГиБ** свободно, после — **4,3 ГиБ** (порог плана 3 ГиБ пройден).
+`target/release` занимает 7,3 ГиБ, из них `deps` 3,3 ГиБ и CEF-дистрибутив ~1,5 ГиБ.
+Промежуточный `BiliReader.AppDir` (1,2 ГиБ) после упаковки удалён.
+
+## Отклонения и их причины
+
+1. **npm `@tauri-apps/cli-cef` не может собрать AppImage.** Он тянет
+   `quick-sharun.sh` с ветки `main` форка FabianLars, а тот ссылается на
+   `pkgforge-dev/Anylinux-AppImages/.../useful-tools/lib/anylinux.c` — файл переехал в
+   `pkgforge-dev/Anylinux-sharun` и отдаёт `404`. Пять ретраев → `ERROR: Failed to download 5 times!`.
+   CI поэтому и собирает CLI из `readest/tauri`, где `quick-sharun` запинен на ревизию
+   `53a05bc3` (все три URL на ней отдают 200).
+2. **Зависание на `/bin/sh` + `set -m`.** `quick-sharun` в strace-режиме запускает
+   приложение и убивает его групповым сигналом; под dash (`/bin/sh` в Ubuntu) группа не
+   создаётся — `kill -TERM -$pid` не срабатывает, и сборка ждёт живой GUI бесконечно
+   (наблюдалось 7+ минут). Лечится bash-шеллом (в CLI из readest/tauri) и `STRACE_MODE=0`.
+3. **appimagetool не резолвит `release-assets.githubusercontent.com`** на этом хосте
+   (`io: failed to lookup address information: Try again`), хотя `curl` тот же URL
+   скачивает. Обход: скачать `uruntime-appimage-lite-x86_64` и `dwarfs-universal`
+   обычным `curl`, затем упаковать с `RUNTIME=... DWARFS_CMD=...`. Это локальная
+   особенность сети, не дефект репозитория.
+4. **Подпись артефактов.** В `tauri.conf.json` включён `bundle.createUpdaterArtifacts`
+   и вшит публичный ключ апдейтера, поэтому после успешной упаковки бандлер требует
+   `TAURI_SIGNING_PRIVATE_KEY` и завершает сборку с `rc=1`
+   (`A public key has been found, but no private key`). В CI ключ есть; локально
+   используется `--no-sign` (бандлы при этом создаются и валидны, только без `.sig`).
+   Это выяснилось на прогоне 4 (`scripts/bilireader-build-linux.sh --bundles deb`),
+   который сначала упал на подписи. Прогон 1–3 до этого шага не доходили: они падали
+   раньше, на AppImage.
+
+## Что осталось за пределами автоматики
+
+Ручной приёмочный сценарий (импорт EPUB/FB2, листание, кегль, темы, перезапуск) —
+`docs/manual-test.md`. Он требует интерактивной работы с GUI и в этом прогоне не
+выполнялся: проверено только то, что приложение стартует и показывает библиотеку.

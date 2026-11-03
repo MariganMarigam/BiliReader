@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>prose_classic</genre>
+      <author><first-name>Иван</first-name><last-name>Тестов</last-name></author>
+      <book-title>Образец для BiliReader</book-title>
+      <lang>ru</lang>
+      <annotation><p>Короткий тестовый файл в кодировке windows-1251.</p></annotation>
+    </title-info>
+    <document-info>
+      <author><nickname>bilireader</nickname></author>
+      <program-used>hand-written</program-used>
+      <date value="2026-11-03">2026-11-03</date>
+      <id>bilireader-sample-1251</id>
+      <version>1.0</version>
+    </document-info>
+  </description>
+  <body>
+    <title><p>Образец для BiliReader</p></title>
+    <section>
+      <title><p>Глава первая. Лампа на столе</p></title>
+      <p>Лампа на столе горела с самого утра, и комната пахла тёплой бумагой.</p>
+      <p>Мира перевернула ещё одну страницу и записала на полях одну строку: здесь начинается история.</p>
+      <p>За окном было тихо. Проехал велосипед, и снова ничего.</p>
+      <p>Она прочитала страницу ещё раз, медленнее, будто слова могли поменяться местами.</p>
+    </section>
+    <section>
+      <title><p>Глава вторая. Тихий полдень</p></title>
+      <p>Полдень наступил без всякой торжественности. Свет переехал по полу и остановился у стула.</p>
+      <p>Был чай, была книга, и на два часа этого хватило.</p>
+      <p>В третьей главе автор описывает дорогу, которая идёт на север сто вёрст.</p>
+      <p>Мира дважды подчеркнула эту фразу и закрыла книгу, заложив пальцем страницу.</p>
+    </section>
+    <section>
+      <title><p>Глава третья. Дорога на север</p></title>
+      <p>Дорога на север была прямой и белой от пыли.</p>
+      <p>Она шла, пока не кончились дома и не начались поля, а потом прошла ещё немного.</p>
+      <p>К вечеру лампа на столе осталась далеко позади — всё ещё горела, всё ещё ждала.</p>
+      <p>Это конец образца. Если вы читаете эту страницу без кракозябр, кодировка windows-1251 определяется верно.</p>
+    </section>
+  </body>
+</FictionBook>
