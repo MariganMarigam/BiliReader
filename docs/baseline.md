@@ -166,6 +166,7 @@ AppImage ломается по двум причинам, обе воспрои�
 | 1 | `pnpm tauri build` (npm `cli-cef`) | **36 мин 27 с** | 1 | `.deb` + `.rpm` собраны; AppImage завис в quick-sharun, затем `404` на `lib/anylinux.c` |
 | 2 | `TAURI_CEF_CARGO=1 STRACE_MODE=0 pnpm tauri build` | **10 мин 21 с** | 1 | Rust `Finished release in 2m45s`; `.deb` + `.rpm` пересобраны; AppImage упал на скачивании uruntime (DNS) |
 | 3 | только упаковка AppImage (`quick-sharun --make-appimage`, локальные `RUNTIME`/`DWARFS_CMD`) | **53 с** | 0 | `BiliReader_0.12.16_amd64.AppImage` создан |
+| 4 | `scripts/bilireader-build-linux.sh --bundles deb` (проверка обёртки) | **3 мин 07 с** | 0 | скрипт прошёл целиком: setup-vendors → next build → cargo → `.deb`, пути артефактов напечатаны |
 
 Итого активного времени: ~21 мин 47 с (633 + 621 + 53 с), считая установку CLI.
 Холодная компиляция Rust в прогоне 1 заняла 15 мин 48 с; повторные — 2 мин 45 с
@@ -178,7 +179,7 @@ AppImage ломается по двум причинам, обе воспрои�
 | Файл | Размер |
 |---|---|
 | `appimage/BiliReader_0.12.16_amd64.AppImage` | 267 367 506 (255 МиБ) |
-| `deb/BiliReader_0.12.16_amd64.deb` | 179 409 342 (171 МиБ) |
+| `deb/BiliReader_0.12.16_amd64.deb` | 179 409 852 (171 МиБ) |
 | `rpm/BiliReader-0.12.16-1.x86_64.rpm` | 142 599 787 (136 МиБ) |
 
 `bundle.targets` в `src-tauri/tauri.conf.json` = `"all"`, поэтому собираются все три
