@@ -44,6 +44,16 @@ repo_root="$(dirname -- "$script_dir")"
 app_dir="$repo_root/apps/readest-app"
 bundle_dir="$repo_root/target/release/bundle"
 
+# --- disk budget ------------------------------------------------------------
+# A cold CEF release build needs ~8 GiB. Refuse up front instead of dying with
+# ENOSPC somewhere in the link or bundle step.
+free_gb=$(( $(df -Pk "$repo_root" | awk 'NR==2 {print $4}') / 1024 / 1024 ))
+if [ "$free_gb" -lt 8 ]; then
+  printf 'ERROR: need at least 8 GB free, run scripts/bilireader-clean.sh\n' >&2
+  printf '       available: %s GiB on %s\n' "$free_gb" "$repo_root" >&2
+  exit 1
+fi
+
 die() {
   printf 'error: %s\n' "$1" >&2
   exit 1
