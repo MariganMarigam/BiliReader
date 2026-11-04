@@ -51,14 +51,16 @@ readest
 ### 1.4 Dev-режим (из исходников)
 
 ```bash
-scripts/bilireader-run.sh
+scripts/bilireader-run.sh --cef   # приложение в окне, как в релизе
+scripts/bilireader-run.sh         # только UI в браузере, http://localhost:3000
 ```
 
 - Скрипт сам подхватывает nvm и rustup, проверяет системные библиотеки и печатает
   понятную причину, если чего-то не хватает.
-- Первый запуск: 10–20 минут (скачивается CEF и компилируется Rust). Дальше — секунды.
+- `--cef`: первый запуск 20+ минут (скачивается CEF и компилируется Rust), ~8 ГБ;
+  дальше — секунды. `--desktop` — WebKitGTK, 10–15 минут и 2–3 ГБ.
 - Остановка: `Ctrl-C` в терминале.
-- Переопределить `DISPLAY` при необходимости: `DISPLAY=:0 scripts/bilireader-run.sh`.
+- Переопределить `DISPLAY` при необходимости: `DISPLAY=:0 scripts/bilireader-run.sh --cef`.
 
 ### 1.5 Релизная сборка (если артефактов нет)
 
@@ -126,7 +128,7 @@ scripts/bilireader-build-linux.sh
    ```bash
    ./BiliReader_*.AppImage 2>&1 | tee ~/bilireader-run.log
    ```
-   Для dev-режима: `scripts/bilireader-run.sh 2>&1 | tee ~/bilireader-run.log`.
+   Для dev-режима: `scripts/bilireader-run.sh --cef 2>&1 | tee ~/bilireader-run.log`.
    Приложите последние 50–100 строк — там видно панику Rust/CEF.
 5. **Версию и окружение:**
    ```bash
