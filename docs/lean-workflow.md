@@ -45,9 +45,11 @@ scripts/bilireader-run.sh --desktop  # CARGO_PROFILE_DEV_DEBUG=0 pnpm exec tauri
 
 - Uses WebKitGTK/wry (default features), **not** CEF, so no `libcef_dll_wrapper`
   compile and no 1.8 GB CEF download.
-- `CARGO_PROFILE_DEV_DEBUG=0` drops debuginfo: that alone is the difference
-  between ~2–3 GB and ~8 GB of `target/debug`. Trade-off: GDB backtraces lose
-  line numbers; drop the env var temporarily if you are debugging Rust.
+- `CARGO_PROFILE_DEV_DEBUG=0` in the wrapper is now redundant — the root
+  `Cargo.toml` pins `[profile.dev] debug = 0, incremental = false` (see
+  [Размер сборки](#размер-сборки-build-size)). That is the difference between
+  ~2–3 GB and ~8 GB of `target/debug`. Trade-off: GDB backtraces lose line
+  numbers; flip `debug` in `Cargo.toml` temporarily if you are debugging Rust.
 - Broken here: the native page-curl cover effect and CDP-based debugging.
 
 ### cef — only when CEF behaviour is the question
@@ -64,6 +66,26 @@ DISPLAY=:0 scripts/bilireader-run.sh --cef   # from a non-graphical shell
 
 In every mode: nothing is packaged, no AppImage is produced, stop with Ctrl-C,
 logs go to the terminal.
+
+## Размер сборки (build size)
+
+The dev profile is pinned in the root `Cargo.toml` — `debug = 0` and
+`incremental = false`. It is **зафиксирован, менять не нужно**: the build pulls
+in the vendored llama.cpp C++ tree, and full DWARF for it plus ~1250 crates
+inflates `target/debug` to tens of GB on a volume with ~14 GB free. The
+incremental cache is expensive as well, and our Rust code changes rarely.
+
+| Профиль                        | Типичный размер `target/`            | Время холодной сборки |
+| ------------------------------ | ------------------------------------ | --------------------- |
+| `dev` (desktop, wry)           | ~2–3 GB                              | 10–15 min             |
+| `dev` (cef)                    | ~4–5 GB (было ~8 GB с debuginfo)     | 20+ min               |
+| `release`                      | ~5.8–6 GB (плюс бандлы)              | 25–45 min             |
+
+Trade-off: без debuginfo GDB-backtraces теряют номера строк, а без
+incremental-кеша каждая пересборка компилирует изменённый крейт целиком
+(зависимости остаются закешированными). Для отладки Rust временно правьте
+`debug` в `Cargo.toml` — не через переменные окружения, иначе cargo создаёт
+дублирующиеся артефакты.
 
 ## Release bundles: only at a checkpoint
 

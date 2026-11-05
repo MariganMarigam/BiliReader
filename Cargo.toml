@@ -67,3 +67,10 @@ tauri-runtime-cef = { path = "packages/tauri-runtime-cef-stub" }
 # LTO is deliberately NOT enabled: fat, thin and off all produce the same
 # .text once codegen-units is 1, so it would buy nothing but link time.
 codegen-units = 1
+
+[profile.dev]
+# A dev build compiles the vendored llama.cpp C++ tree, and full DWARF debuginfo
+# for it plus ~1250 crates turns target/debug into tens of gigabytes (14 GB disk
+# here). The incremental cache is expensive too, and our Rust code changes rarely.
+debug = 0
+incremental = false
