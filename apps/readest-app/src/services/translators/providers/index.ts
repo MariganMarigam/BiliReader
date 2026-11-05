@@ -5,6 +5,8 @@ import { deeplProvider } from './deepl';
 import { azureProvider } from './azure';
 import { googleProvider } from './google';
 import { yandexProvider } from './yandex';
+import { localProvider } from './local';
+import { LOCAL_TRANSLATOR_NAME } from '../localDefaults';
 
 function createTranslator<T extends string>(
   name: T,
@@ -22,12 +24,14 @@ const deeplTranslator = createTranslator('deepl', deeplProvider);
 const azureTranslator = createTranslator('azure', azureProvider);
 const googleTranslator = createTranslator('google', googleProvider);
 const yandexTranslator = createTranslator('yandex', yandexProvider);
+const localTranslator = createTranslator(LOCAL_TRANSLATOR_NAME, localProvider);
 
 const availableTranslators = [
   deeplTranslator,
   azureTranslator,
   googleTranslator,
   yandexTranslator,
+  localTranslator,
   // Add more translators here
 ];
 

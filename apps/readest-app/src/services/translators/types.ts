@@ -72,4 +72,5 @@ export const ErrorCodes = {
   DEEPL_API_ERROR: 'DeepL API Error',
   DAILY_QUOTA_EXCEEDED: 'Daily Quota Exceeded',
   INTERNAL_SERVER_ERROR: 'Internal Server Error',
+  LOCAL_TRANSLATOR_UNAVAILABLE: 'Local Translator Unavailable',
 };

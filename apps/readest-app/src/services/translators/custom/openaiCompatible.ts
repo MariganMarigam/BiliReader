@@ -146,6 +146,8 @@ const splitNumbered = (text: string, n: number): string[] | null => {
 };
 
 const toTranslatorError = (err: unknown): Error => {
+  const name = (err as { name?: string })?.name;
+  if (name === 'AbortError' || name === 'TimeoutError') return err as Error;
   const status = (err as { statusCode?: number }).statusCode;
   if (status === 401 || status === 403) return new Error(ErrorCodes.UNAUTHORIZED);
   return err instanceof Error ? err : new Error(String(err));
