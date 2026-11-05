@@ -25,6 +25,7 @@ import {
   DEFAULT_WORD_LENS_CONFIG,
   DEFAULT_EINK_VIEW_SETTINGS,
   DEFAULT_VIEW_SETTINGS_CONFIG,
+  DEFAULT_LOCAL_TRANSLATOR_SETTINGS,
 } from './constants';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
@@ -162,6 +163,10 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
   settings.aiSettings = {
     ...DEFAULT_AI_SETTINGS,
     ...settings.aiSettings,
+  };
+  settings.localTranslator = {
+    ...DEFAULT_LOCAL_TRANSLATOR_SETTINGS,
+    ...settings.localTranslator,
   };
 
   settings.localBooksDir = await ctx.fs.getPrefix('Books');

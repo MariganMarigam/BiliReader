@@ -52,6 +52,7 @@ export const BACKUP_SETTINGS_BLACKLIST = [
   'autoImportFolders',
   'autoImportFlattenFolders',
   'savedBookCoverForLockScreenPath',
+  'localTranslator',
   // Per-device identity — restoring causes sync identity / HLC collisions.
   'replicaDeviceId',
   'kosync.deviceId',

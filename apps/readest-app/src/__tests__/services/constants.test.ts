@@ -45,6 +45,7 @@ import {
   DEFAULT_TRANSLATOR_CONFIG,
   DEFAULT_NOTE_EXPORT_CONFIG,
   DEFAULT_ANNOTATOR_CONFIG,
+  DEFAULT_LOCAL_TRANSLATOR_SETTINGS,
   DEFAULT_SCREEN_CONFIG,
   DEFAULT_PARAGRAPH_MODE_CONFIG,
   DEFAULT_BOOK_SEARCH_CONFIG,
@@ -311,6 +312,12 @@ describe('services/constants', () => {
       expect(hw.bindings.sectionPrev).toBeNull();
       expect(hw.bindings.sectionNext).toBeNull();
       expect(hw.bindings.refresh).toBeNull();
+    });
+
+    it('has device-local local translator defaults', () => {
+      expect(DEFAULT_LOCAL_TRANSLATOR_SETTINGS.endpoint).toBe('http://127.0.0.1:8080/v1');
+      expect(DEFAULT_LOCAL_TRANSLATOR_SETTINGS.model).toBe('hy-mt2-1.8b');
+      expect(DEFAULT_SYSTEM_SETTINGS.localTranslator).toBe(DEFAULT_LOCAL_TRANSLATOR_SETTINGS);
     });
   });
 

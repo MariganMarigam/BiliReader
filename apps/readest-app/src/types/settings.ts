@@ -443,6 +443,15 @@ export interface HardwarePageTurnerSettings {
   };
 }
 
+/** Local OpenAI-compatible translation server (llama.cpp / llama-server). Device-local. */
+export interface LocalTranslatorSettings {
+  /** Base URL including the API version path, e.g. http://127.0.0.1:8080/v1 */
+  endpoint: string;
+  model: string;
+  /** Sampling temperature; no UI yet, set in settings JSON / future panel. */
+  temperature: number;
+}
+
 export interface SystemSettings {
   version: number;
   migrationVersion: number;
@@ -605,6 +614,7 @@ export interface SystemSettings {
   icloud: ICloudSettings;
 
   aiSettings: AISettings;
+  localTranslator: LocalTranslatorSettings;
   /**
    * Per-device id used as the deviceId portion of every HLC this device
    * mints. Lazy-generated on first sync init via uuidv4 (mirrors

@@ -25,6 +25,7 @@ import {
   LibraryGroupByType,
   LibrarySortByType,
   NotionSettings,
+  LocalTranslatorSettings,
   ReadSettings,
   ReadwiseSettings,
   SystemSettings,
@@ -38,6 +39,11 @@ import { UserStorageQuota, UserDailyTranslationQuota, UserDailyTTSQuota } from '
 import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config';
 import { stubTranslation as _ } from '@/utils/misc';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
+import {
+  DEFAULT_LOCAL_ENDPOINT,
+  DEFAULT_LOCAL_MODEL,
+  DEFAULT_LOCAL_TEMPERATURE,
+} from './translators/localDefaults';
 import {
   DEFAULT_HANDWRITING_COLOR,
   DEFAULT_HANDWRITING_WIDTH,
@@ -208,6 +214,12 @@ export const DEFAULT_ICLOUD_SETTINGS = {
   lastSyncedAt: 0,
 } as ICloudSettings;
 
+export const DEFAULT_LOCAL_TRANSLATOR_SETTINGS: LocalTranslatorSettings = {
+  endpoint: DEFAULT_LOCAL_ENDPOINT,
+  model: DEFAULT_LOCAL_MODEL,
+  temperature: DEFAULT_LOCAL_TEMPERATURE,
+};
+
 export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   keepLogin: false,
   alwaysOnTop: false,
@@ -279,6 +291,7 @@ export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   onedrive: DEFAULT_ONEDRIVE_SETTINGS,
   icloud: DEFAULT_ICLOUD_SETTINGS,
   aiSettings: DEFAULT_AI_SETTINGS,
+  localTranslator: DEFAULT_LOCAL_TRANSLATOR_SETTINGS,
 
   lastSyncedAtBooks: 0,
   lastSyncedAtConfigs: 0,
