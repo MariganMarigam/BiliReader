@@ -55,14 +55,15 @@ scripts/bilireader-mt-server.sh stop
 ```
 
 `start` returns immediately, writes `/tmp/opencode/mt-server.log`, and waits up
-to 120 s for `GET /health` before reporting the ready time. Defaults: port 8080,
-context 512, 4 threads, all layers on the CPU (`-ngl 0`).
+to 180 s for `GET /health` before reporting the ready time. Defaults: port 8080,
+context 512, 2 threads, all layers on the CPU (`-ngl 0`). Give the start call
+itself a 300 s timeout: the wait loop covers a cold model load plus a slow disk.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `BILIREADER_MT_PORT` | `8080` | listen port |
 | `BILIREADER_MT_CTX` | `512` | context window |
-| `BILIREADER_MT_THREADS` | `4` | CPU threads |
+| `BILIREADER_MT_THREADS` | `2` | CPU threads |
 | `BILIREADER_MT_LOG` | `/tmp/opencode/mt-server.log` | log + pid file |
 
 512 tokens is enough for a single paragraph. The app batches up to **4 segments
@@ -122,55 +123,59 @@ reference.
 
 ## Measurements
 
-Machine: 13th Gen Intel i7-13620H (16 threads), no GPU, CPU-only build
-`b12125`, `-ngl 0`, 4 threads, context 512, Q4_K_M. Client-side wall clock per
-request (`/v1/chat/completions`, temperature 0.7, top_p 0.6, top_k 20,
-repetition penalty 1.05, max 256 tokens).
+Machine: 13th Gen Intel i7-13620H (16 threads, `nproc` = 16), no GPU, CPU-only
+build `b12125`, `-ngl 0`, **2 threads**, context 512, Q4_K_M. Client-side wall
+clock per request (`/v1/chat/completions`, temperature 0, max 256 tokens, user
+turn = the model card's native `Translate the following English text to Russian.
+Output only the translation.` + the source text).
 
 | Metric | Value |
 | --- | --- |
-| Cold start to `/health` 200 (model load 1.72 s in the log) | **2 s** |
-| RSS / PSS after warm-up | **1.91 GB / 1.90 GB** |
-| Prompt size (system prompt + probe) | 67–94 tokens |
+| Cold start to `/health` 200 (model load 0.93 s in the log) | **1 s** (`ready in 1s`) |
+| RSS / VSZ after six requests (2 threads, ctx 512) | **1 887 MiB / 2 941 MiB** |
+| Prompt size (instruction + probe) | 18–75 tokens |
 
-| # | Probe | Source (EN) | Translation (RU) | Latency |
-| --- | --- | --- | --- | --- |
-| 1 | one word | serendipity | сюрприз | 658 ms |
-| 2 | four-word phrase | The old lighthouse keeper. | Старик-фонарщик | 373 ms |
-| 3 | short sentence | She closed the book and looked out of the window. | Она закрыла книгу и посмотрела в окно. | 607 ms |
-| 4 | long sentence | Although the storm had been raging since dawn, the villagers refused to abandon their homes, and by nightfall every lamp in the valley was still burning. | Хотя буря шла с рассвета, жители деревни отказались покидать свои дома, и к вечеру все лампы в долине все еще горели. | 1 729 ms |
-| 5 | two sentences, context | Mr. Thornton had never trusted the ferryman. When the fog rolled in that evening, he finally understood why. | Мистер Торнтон никогда не доверял паромщику. Когда в тот вечер поднялся туман, он наконец понял почему. | 1 707 ms |
+| # | Probe | Source (EN) | Translation (RU) | Latency | Output tokens |
+| --- | --- | --- | --- | --- | --- |
+| 1 | one word | mortgage | ипотека | 252 ms (470 ms on the first, cold call) | 5 |
+| 2 | four-word idiom | take it for granted | Считать это само собой | 515 ms | 10 |
+| 3 | short sentence | I will call you tomorrow morning. | Я позвоню вам завтра утром. | 745 ms | 14 |
+| 4 | long literary sentence | The old lighthouse keeper climbed the spiral stairs every evening, though the lamp had been dark for thirty years, and no ship had asked the question it once answered. | Старый стражник маяка каждый вечер поднимался по спиральным ступеням, хотя лампа не светила уже тридцать лет, и ни одна лодка не задавала того вопроса, на который она когда-то отвечала. | 3 582 ms | 72 |
+| 5 | two sentences, context | The bank refused to extend the loan. The manager said the collateral was insufficient. | Банк отказался продлить кредит. Менеджер сказал, что залог недостаточен. | 1 569 ms | 32 |
 
-Repeat of probe 4 with the prompt cache disabled (`cache_prompt: false`):
-**2 185 / 2 190 / 2 250 ms** — flat, so repeated uncached requests do not degrade.
-With the app's fixed system prompt the server reuses the shared prefix and the
-same request takes **1 540 ms** (`cached_tokens: 88`).
+Throughput on probe 4: 72 output tokens in 3.58 s ≈ **20 tok/s** with 2 threads;
+higher thread counts do not help much on this CPU (4 threads measured 23–32 tok/s
+on prose in an earlier run, at the cost of more heat).
 
 Quality, read by hand against the five probes:
 
-- **Sentences are the strong case.** #3 is exact; #4 keeps the concession, the
-  subject change and the final clause; #5 keeps the name (`Mr. Thornton` →
-  `Мистер Торнтон`), resolves the pronoun correctly across the sentence break,
-  and leaves no commentary.
-- **Isolated words fail.** #1 renders *serendipity* as *сюрприз* ("surprise"),
-  which is wrong; with no sentence around it the model guesses a near neighbour.
-- **Compounds drift.** #2 *lighthouse keeper* → *фонарщик* ("lamplighter") is
-  natural Russian but drops the lighthouse. Correct would be
-  *смотритель маяка*.
+- **Sentences are the strong case.** #3 is exact (it picks the polite *вам* for
+  the English *you*, which is the safe literary default); #4 keeps both clauses,
+  the concession, the time span and the closing relative clause; #5 answers the
+  context question correctly — *bank* becomes a financial *банк* because the
+  sentence talks about a loan and collateral.
+- **Isolated idioms get cut short.** #2 returns *Считать это само собой*, the
+  first half of *считать само собой разумеющимся*: with a bare phrase and a
+  128-token budget the model stops mid-idiom. Give it a full sentence
+  ("Don't take it for granted.") and the phrase completes.
+- **Lexical drift in long clauses.** #4 renders *keeper* as *стражник*
+  ("guard") instead of *смотритель маяка* and *ship* as *лодка* ("boat"). The
+  sentence still reads naturally and means the same thing, which is the trade-off
+  of a 1.8B model: no grammar errors, occasional loss of a specific noun.
 - **No garbage, no loops, no notes.** All five replies are one clean block whose
   length tracks the source; nothing was repeated and the model never explained
   itself (the `special_eos_id is not in special_eog_ids` warning at load is
   harmless — generation stops on `<｜hy_place▁holder▁no▁2｜>`).
 - **The native prompt format is slightly better.** Sending the model card's
   `Translate the following text into Russian…` instruction as the user turn
-  (instead of the app's system prompt + raw text) gives *«Хотя буря бушевала с
-  рассвета…»* for #4 — more vivid than *«буря шла»* — at +200 ms. If prose
-  quality matters more than turnaround, use a custom translation prompt with
-  that wording.
-- **Throughput.** Probe 4 renders 50 output tokens in 2.19 s uncached (≈23 tok/s)
-  and 1.54 s with the prefix cache (≈32 tok/s), prompt evaluation included. A
-  250-word page is ~350 output tokens, i.e. roughly 11–15 s of CPU time when
-  split into the app's 4-segment batches.
+  (instead of the app's system prompt + raw text) gives more vivid prose for the
+  same content at roughly +200 ms on long sentences. The measurements above use
+  that format; the app sends its own literary system prompt, so expect the app's
+  output to be a little flatter. If prose quality matters more than turnaround,
+  put the native instruction into a custom translation prompt in the app.
+- **Cost per page.** At ~20 tok/s a 250-word page (~350 output tokens) takes
+  roughly 17 s of CPU time, split into the app's 4-segment batches; the shared
+  system-prompt prefix is cached between requests, so repeats are ~25% faster.
 
 ## Remove the model and free space
 

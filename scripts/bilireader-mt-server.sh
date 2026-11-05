@@ -5,14 +5,14 @@
 # that the app's "OpenAI Compatible" custom translator can talk to.
 #
 # Usage:
-#   scripts/bilireader-mt-server.sh start     # background, wait for /health (<= 120 s)
+#   scripts/bilireader-mt-server.sh start     # background, wait for /health (<= 180 s)
 #   scripts/bilireader-mt-server.sh stop
 #   scripts/bilireader-mt-server.sh status
 #   scripts/bilireader-mt-server.sh logs [N]  # last N lines (default 100), then follow
 #
 # Environment overrides:
 #   BILIREADER_MT_PORT (8080)   BILIREADER_MT_CTX (512)
-#   BILIREADER_MT_THREADS (4)   BILIREADER_MT_LOG (/tmp/opencode/mt-server.log)
+#   BILIREADER_MT_THREADS (2)   BILIREADER_MT_LOG (/tmp/opencode/mt-server.log)
 #
 # Everything outside the repository lives under ~/.local/share/bilireader/;
 # see docs/local-mt-server.md.
@@ -26,7 +26,7 @@ model="$model_dir/Hy-MT2-1.8B-Q4_K_M.gguf"
 host="127.0.0.1"
 port="${BILIREADER_MT_PORT:-8080}"
 ctx="${BILIREADER_MT_CTX:-512}"
-threads="${BILIREADER_MT_THREADS:-4}"
+threads="${BILIREADER_MT_THREADS:-2}"
 log="${BILIREADER_MT_LOG:-/tmp/opencode/mt-server.log}"
 pidfile="$(dirname -- "$log")/mt-server.pid"
 alias_name="hy-mt2-1.8b"
@@ -63,7 +63,7 @@ healthy() {
 }
 
 wait_ready() {
-  local pid="$1" deadline=$(( SECONDS + 120 )) body
+  local pid="$1" deadline=$(( SECONDS + 180 )) body
   while (( SECONDS < deadline )); do
     if ! kill -0 "$pid" 2>/dev/null; then
       printf 'error: llama-server exited during startup; last log lines:\n' >&2
@@ -75,7 +75,7 @@ wait_ready() {
     fi
     sleep 0.5
   done
-  printf 'error: server not healthy after 120 s; see %s\n' "$log" >&2
+  printf 'error: server not healthy after 180 s; see %s\n' "$log" >&2
   return 1
 }
 
