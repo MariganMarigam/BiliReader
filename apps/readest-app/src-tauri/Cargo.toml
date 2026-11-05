@@ -188,6 +188,7 @@ sentry = { version = "0.42", default-features = false, features = [
   "rustls",
 ] }
 tauri-plugin-sentry = { version = "0.5", default-features = false }
+llama-cpp-2 = "0.1.161"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 rand = "0.8"
@@ -239,3 +240,6 @@ windows = { version = "0.61", features = [
 
 [target.'cfg(target_os = "android")'.dependencies]
 libc = "0.2"
+
+[target.'cfg(any(target_os = "android", target_os = "linux"))'.dependencies]
+llama-cpp-sys-2 = { version = "0.1.161", features = ["static-stdcxx"] }

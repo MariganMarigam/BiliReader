@@ -85,6 +85,9 @@ fn main() {
             "localsend_cancel_receive",
             "localsend_send_files",
             "localsend_cancel_send",
+            "local_engine_status",
+            "translate_local",
+            "cancel_translation",
         ]),
     ))
     .expect("failed to run tauri-build");

@@ -54,6 +54,7 @@ mod sentry_config;
 #[cfg(desktop)]
 mod spawn_fresh_browser;
 mod transfer_file;
+mod translation_core;
 mod web_browser;
 #[cfg(desktop)]
 mod window_state;
@@ -724,6 +725,9 @@ pub fn run() {
             nightly_update::verify_update_signature,
             #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
             nightly_update::install_nightly_update,
+            translation_core::commands::local_engine_status,
+            translation_core::commands::translate_local,
+            translation_core::commands::cancel_translation,
         ])
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())
@@ -833,6 +837,7 @@ pub fn run() {
                 app.manage(discord_client);
             }
             app.manage(localsend::LocalSendState::default());
+            app.manage(translation_core::TranslationCore::new());
 
             #[cfg(desktop)]
             {
