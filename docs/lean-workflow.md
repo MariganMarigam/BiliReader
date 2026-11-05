@@ -120,6 +120,12 @@ a smaller wry-only tree in 10–15 minutes and 2–3 GB. Both are rebuilt by the
 script, so delete `target/` when the disk is full, not after every session — and
 prefer staying in web mode so neither exists in the first place.
 
+## Local MT server
+
+Offline EN→RU translation for quality checks takes ~1.2 GB under
+`~/.local/share/bilireader/`; it is not build output and the clean script leaves
+it alone. Install, run and removal: [local-mt-server.md](local-mt-server.md).
+
 ## Disk rule
 
 - **< 8 GB free** → no release build. The build script refuses to start.
