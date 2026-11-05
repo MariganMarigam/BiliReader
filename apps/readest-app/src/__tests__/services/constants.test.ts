@@ -386,6 +386,7 @@ describe('services/constants', () => {
 
     it('has translation settings', () => {
       expect(typeof DEFAULT_READSETTINGS.translationProvider).toBe('string');
+      expect(DEFAULT_READSETTINGS.translationProvider).toBe('local');
       expect(typeof DEFAULT_READSETTINGS.translateTargetLang).toBe('string');
     });
 
@@ -688,6 +689,7 @@ describe('services/constants', () => {
       expect(typeof DEFAULT_TRANSLATOR_CONFIG).toBe('object');
       expect(typeof DEFAULT_TRANSLATOR_CONFIG.translationEnabled).toBe('boolean');
       expect(typeof DEFAULT_TRANSLATOR_CONFIG.translationProvider).toBe('string');
+      expect(DEFAULT_TRANSLATOR_CONFIG.translationProvider).toBe('local');
       expect(typeof DEFAULT_TRANSLATOR_CONFIG.translateTargetLang).toBe('string');
       expect(typeof DEFAULT_TRANSLATOR_CONFIG.showTranslateSource).toBe('boolean');
       expect(typeof DEFAULT_TRANSLATOR_CONFIG.ttsReadAloudText).toBe('string');

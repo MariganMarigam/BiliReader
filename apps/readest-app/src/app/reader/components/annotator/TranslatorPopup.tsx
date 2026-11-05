@@ -14,8 +14,7 @@ import { isCustomTranslatorAllowed } from '@/utils/access';
 import {
   UseTranslatorOptions,
   getTranslatorDisplayLabel,
-  getTranslators,
-  isTranslatorAvailable,
+  resolveTranslator,
 } from '@/services/translators';
 import Select from '@/components/Select';
 
@@ -97,11 +96,11 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
 
   const handleProviderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const requestedProvider = event.target.value;
-    const availableTranslators = getTranslators().filter((t) =>
-      isTranslatorAvailable(t, !!token, isCustomTranslatorAllowed(token)),
+    const selectedTranslator = resolveTranslator(
+      requestedProvider,
+      !!token,
+      isCustomTranslatorAllowed(token),
     );
-    const selectedTranslator =
-      availableTranslators.find((t) => t.name === requestedProvider) || availableTranslators[0]!;
     if (selectedTranslator) {
       settings.globalReadSettings.translationProvider = selectedTranslator.name;
       setSettings(settings);

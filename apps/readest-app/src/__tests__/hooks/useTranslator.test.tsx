@@ -132,4 +132,40 @@ describe('custom translators in the registry and useTranslator', () => {
     await waitFor(() => expect(result.current.translator).toBeDefined());
     expect(result.current.translator!.name.startsWith('custom:')).toBe(false);
   });
+
+  it('translates through the local provider', async () => {
+    generateTextMock.mockResolvedValue({ text: 'Bonjour' });
+    const { result } = renderHook(() =>
+      useTranslator({ provider: 'local', targetLang: 'fr', bookTitle: 'Candide' }),
+    );
+    await waitFor(() => expect(result.current.translator?.name).toBe('local'));
+    let out: string[] = [];
+    await act(async () => {
+      out = await result.current.translate(['Hello']);
+    });
+    expect(out).toEqual(['Bonjour']);
+    expect(generateTextMock.mock.calls[0]![0].system).toContain('Candide');
+    const cacheKey = storeInCacheMock.mock.calls[0]![4] as string;
+    expect(cacheKey).toMatch(/^local#/);
+  });
+
+  it('reports an unavailable local server instead of falling back to a cloud provider', async () => {
+    auth.token = null;
+    generateTextMock.mockRejectedValue(new TypeError('fetch failed'));
+    const { result } = renderHook(() => useTranslator({ provider: 'local', targetLang: 'fr' }));
+    await waitFor(() => expect(result.current.translator?.name).toBe('local'));
+    await act(async () => {
+      await expect(result.current.translate(['Hello'])).rejects.toThrow(
+        /Local Translator Unavailable/,
+      );
+    });
+    expect(result.current.translator!.name).toBe('local');
+  });
+
+  it('falls back from deepl without a token to the first available provider (local)', async () => {
+    auth.token = null;
+    const { result } = renderHook(() => useTranslator({ provider: 'deepl' }));
+    await waitFor(() => expect(result.current.translator).toBeDefined());
+    expect(result.current.translator!.name).toBe('local');
+  });
 });

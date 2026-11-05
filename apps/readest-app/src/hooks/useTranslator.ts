@@ -4,7 +4,7 @@ import {
   ErrorCodes,
   getTranslator,
   getTranslators,
-  isTranslatorAvailable,
+  resolveTranslator,
   TranslatorName,
 } from '@/services/translators';
 import { getFromCache, storeInCache, UseTranslatorOptions } from '@/services/translators';
@@ -50,11 +50,8 @@ export function useTranslator({
 
   useEffect(() => {
     const hasPremium = isCustomTranslatorAllowed(token);
-    const availableTranslators = translators.filter((t) =>
-      isTranslatorAvailable(t, !!token, hasPremium),
-    );
-    const selectedTranslator =
-      availableTranslators.find((t) => t.name === provider) || availableTranslators[0]!;
+    const selectedTranslator = resolveTranslator(provider, !!token, hasPremium);
+    if (!selectedTranslator) return;
     const selectedProviderName = selectedTranslator.name as TranslatorName;
     setTransltor(selectedTranslator);
     setSelectedProvider(selectedProviderName);

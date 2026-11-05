@@ -66,6 +66,8 @@ vi.mock('@/hooks/useTranslator', () => ({
 vi.mock('@/services/translators', () => ({
   getTranslators: () => mockTranslators,
   isTranslatorAvailable: () => true,
+  resolveTranslator: (name: string) =>
+    mockTranslators.find((t) => t.name === name) ?? mockTranslators[0],
   getTranslatorDisplayLabel: (t: TranslationProvider, _hasToken: boolean, hasPremium: boolean) =>
     t.premiumRequired && !hasPremium ? `${t.label} (Premium)` : t.label,
 }));
@@ -224,5 +226,28 @@ describe('TranslatorPopup provider list', () => {
       />,
     );
     expect(await screen.findByRole('option', { name: 'Ollama' })).toBeTruthy();
+  });
+
+  it('lists the local server next to the cloud providers', async () => {
+    mockTranslator = { name: 'local', label: 'Local Server' };
+    mockTranslators = [
+      mockTranslator,
+      { name: 'google', label: 'Google Translate' },
+      { name: 'deepl', label: 'DeepL', authRequired: true },
+    ];
+    await renderPopup();
+    expect(await screen.findByRole('option', { name: 'Local Server' })).toBeTruthy();
+  });
+
+  it('keeps local selected after the user picks it', async () => {
+    mockTranslator = { name: 'local', label: 'Local Server' };
+    mockTranslators = [mockTranslator, { name: 'azure', label: 'Azure Translator' }];
+    await renderPopup();
+
+    const providerSelect = screen.getAllByRole('combobox')[2] as HTMLSelectElement;
+    fireEvent.change(providerSelect, { target: { value: 'local' } });
+
+    expect(providerSelect.value).toBe('local');
+    expect(mockSetSettings).toHaveBeenCalled();
   });
 });

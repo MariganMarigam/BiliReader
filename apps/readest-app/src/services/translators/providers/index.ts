@@ -27,11 +27,11 @@ const yandexTranslator = createTranslator('yandex', yandexProvider);
 const localTranslator = createTranslator(LOCAL_TRANSLATOR_NAME, localProvider);
 
 const availableTranslators = [
+  localTranslator,
   deeplTranslator,
   azureTranslator,
   googleTranslator,
   yandexTranslator,
-  localTranslator,
   // Add more translators here
 ];
 
@@ -49,6 +49,24 @@ export const getTranslators = (): TranslationProvider[] => {
 
 export const getTranslator = (name: TranslatorName): TranslationProvider | undefined => {
   return getTranslators().find((translator) => translator.name === name);
+};
+
+/**
+ * Resolve the provider to actually use. `local` is never silently swapped for a
+ * cloud provider: a wrong-endpoint translation would hide the misconfiguration
+ * behind a working (billed) network call. Everything else keeps the historical
+ * "fall back to the first available" behaviour.
+ */
+export const resolveTranslator = (
+  name: TranslatorName,
+  hasToken: boolean,
+  hasPremium: boolean,
+): TranslationProvider | undefined => {
+  const available = getTranslators().filter((t) => isTranslatorAvailable(t, hasToken, hasPremium));
+  const exact = available.find((t) => t.name === name);
+  if (exact) return exact;
+  if (name === LOCAL_TRANSLATOR_NAME) return getTranslator(name);
+  return available[0];
 };
 
 /**

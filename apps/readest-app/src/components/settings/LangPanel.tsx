@@ -11,7 +11,7 @@ import { saveViewSettings } from '@/helpers/settings';
 import {
   getTranslatorDisplayLabel,
   getTranslators,
-  isTranslatorAvailable,
+  resolveTranslator,
 } from '@/services/translators';
 import { isTranslationAvailable } from '@/services/translators/utils';
 import { DEFAULT_PROMPT_ID, isCustomTranslatorName } from '@/services/translators/custom';
@@ -184,12 +184,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const getCurrentTranslationProviderOption = () => {
     const value = translationProvider;
     const allProviders = getTranslationProviderOptions();
-    const availableTranslators = getTranslators().filter((t) =>
-      isTranslatorAvailable(t, !!token, hasPremium),
-    );
-    const currentProvider = availableTranslators.find((t) => t.name === value)
-      ? value
-      : availableTranslators[0]?.name;
+    const currentProvider = resolveTranslator(value, !!token, hasPremium)?.name ?? value;
     return allProviders.find((p) => p.value === currentProvider) || allProviders[0]!;
   };
 
