@@ -4,6 +4,15 @@ The fork's disk budget is tight (the root volume runs at 95–99 %), and a relea
 bundle costs ~6 GB plus ~1.8 GB of CEF download cache. So: iterate in dev mode,
 package only at checkpoints, and clean up after.
 
+## Порядок запуска (run order)
+
+1. `scripts/bilireader-mt-server.sh start` — local MT server (port 8080).
+2. `scripts/bilireader-run.sh` — Next.js dev server (port 3000).
+3. Open `http://localhost:3000` and check the page is served.
+
+> **Warning:** `pnpm tauri build` is not part of this loop. It costs ~8 GB of
+> `target/release` and 20+ minutes — run it only deliberately, at a checkpoint.
+
 ## Three dev cycles — pick the cheapest one that answers your question
 
 `scripts/bilireader-run.sh` has three modes. The default is the cheap one; the
