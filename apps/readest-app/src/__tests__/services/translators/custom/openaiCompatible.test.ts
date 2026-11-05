@@ -205,4 +205,38 @@ describe('createOpenAICompatibleTranslator', () => {
     expect(other.getCacheKey!('en', 'fr', {})).not.toBe(k1);
     expect(t.getCacheKey!('en', 'fr', { bookTitle: 'X' })).not.toBe(k1);
   });
+
+  it('uses the name option for the provider name and cache namespace', () => {
+    const t = createOpenAICompatibleTranslator(config, { name: 'local' });
+    expect(t.name).toBe('local');
+    expect(t.getCacheKey!('en', 'fr', {}).startsWith('local#')).toBe(true);
+  });
+
+  it('folds the cache key salt into the fingerprint', () => {
+    const a = createOpenAICompatibleTranslator(config, {
+      name: 'local',
+      cacheKeySalt: 'http://a/v1',
+    });
+    const b = createOpenAICompatibleTranslator(config, {
+      name: 'local',
+      cacheKeySalt: 'http://b/v1',
+    });
+    expect(a.getCacheKey!('en', 'fr', {})).not.toBe(b.getCacheKey!('en', 'fr', {}));
+  });
+
+  it('honours the batch char limit', async () => {
+    generateTextMock.mockImplementation(async ({ prompt }: GenerateArgs) => {
+      const count = prompt.match(/^\[\d+\]$/gm)?.length ?? 0;
+      return {
+        text: count > 0 ? numbered(Array.from({ length: count }, (_, i) => `T${i + 1}`)) : 'T1',
+      };
+    });
+    const t = createOpenAICompatibleTranslator(config, { batch: { chars: 50 } });
+    const out = await Promise.all([
+      t.translate(['a'.repeat(30)], 'en', 'fr'),
+      t.translate(['b'.repeat(30)], 'en', 'fr'),
+    ]);
+    expect(out).toEqual([['T1'], ['T1']]);
+    expect(generateTextMock).toHaveBeenCalledTimes(2);
+  });
 });

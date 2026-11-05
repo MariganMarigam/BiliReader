@@ -13,6 +13,21 @@ const MAX_BATCH_CHARS = 3000;
 const MAX_INFLIGHT_BATCHES = 4;
 const REQUEST_TIMEOUT_MS = 60_000;
 
+export interface BatchLimits {
+  items: number;
+  chars: number;
+  inflight: number;
+}
+
+export interface OpenAICompatibleOptions {
+  /** Provider name; defaults to `custom:<id>`. */
+  name?: string;
+  /** Folded into the cache fingerprint so a base-URL change yields fresh translations. */
+  cacheKeySalt?: string;
+  requestTimeoutMs?: number;
+  batch?: Partial<BatchLimits>;
+}
+
 const SINGLE_RULES =
   "Output only the translation of the user's text, without explanations, notes or quotation marks.";
 const batchRules = (n: number) =>
@@ -136,7 +151,17 @@ const toTranslatorError = (err: unknown): Error => {
   return err instanceof Error ? err : new Error(String(err));
 };
 
-export const createOpenAICompatibleTranslator = (config: CustomTranslator): TranslationProvider => {
+export const createOpenAICompatibleTranslator = (
+  config: CustomTranslator,
+  options: OpenAICompatibleOptions = {},
+): TranslationProvider => {
+  const timeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+  const limits: BatchLimits = {
+    items: MAX_BATCH_ITEMS,
+    chars: MAX_BATCH_CHARS,
+    inflight: MAX_INFLIGHT_BATCHES,
+    ...options.batch,
+  };
   const pending = new Map<string, PendingBatch>();
   const queue: PendingBatch[] = [];
   let inflight = 0;
@@ -154,7 +179,7 @@ export const createOpenAICompatibleTranslator = (config: CustomTranslator): Tran
     // listener without handling the result, so a timer that fires after the
     // reply leaves an unhandled "resource id is invalid" rejection.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const text = await generateChatText(config, {
         system,
@@ -195,7 +220,7 @@ export const createOpenAICompatibleTranslator = (config: CustomTranslator): Tran
   };
 
   const pump = () => {
-    while (inflight < MAX_INFLIGHT_BATCHES && queue.length > 0) {
+    while (inflight < limits.inflight && queue.length > 0) {
       const batch = queue.shift()!;
       const items = batch.items.filter((item) => !item.cancelled);
       if (items.length === 0) continue;
@@ -222,7 +247,7 @@ export const createOpenAICompatibleTranslator = (config: CustomTranslator): Tran
     const batch = pending.get(system);
     if (
       batch &&
-      (batch.items.length >= MAX_BATCH_ITEMS || batch.chars + item.text.length > MAX_BATCH_CHARS)
+      (batch.items.length >= limits.items || batch.chars + item.text.length > limits.chars)
     ) {
       flush(system);
     }
@@ -237,12 +262,12 @@ export const createOpenAICompatibleTranslator = (config: CustomTranslator): Tran
   };
 
   return {
-    name: `${CUSTOM_TRANSLATOR_PREFIX}${config.id}`,
+    name: options.name ?? `${CUSTOM_TRANSLATOR_PREFIX}${config.id}`,
     label: config.name,
     concurrency: 16,
     getCacheKey: (sourceLang, targetLang, context) =>
-      `${CUSTOM_TRANSLATOR_PREFIX}${config.id}#${md5Fingerprint(
-        `${config.model}\n${renderSystem(sourceLang, targetLang, context)}`,
+      `${options.name ?? `${CUSTOM_TRANSLATOR_PREFIX}${config.id}`}#${md5Fingerprint(
+        `${config.model}\n${options.cacheKeySalt ?? ''}\n${renderSystem(sourceLang, targetLang, context)}`,
       )}`,
     translate: async (texts, sourceLang, targetLang, _token, _useCache, signal, context) => {
       signal?.throwIfAborted();
