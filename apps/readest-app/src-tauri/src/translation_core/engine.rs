@@ -105,8 +105,10 @@ pub struct EngineRequest<'a> {
 /// A translation backend.
 pub trait Engine: Send + Sync {
     /// Provenance id, e.g. `"llama-cpp-2 0.1.161"`.
+    #[allow(dead_code)] // consumed by the router in stage 1.3
     fn id(&self) -> &'static str;
     /// Level implemented by this engine.
+    #[allow(dead_code)] // consumed by the router in stage 1.3
     fn level(&self) -> Level;
     /// Translate `req`, streaming pieces into `sink`. Blocks until done.
     fn translate(
