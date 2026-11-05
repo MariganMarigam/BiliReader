@@ -67,7 +67,7 @@ Measured on this dev machine with `CARGO_PROFILE_DEV_DEBUG=0`
 `n_threads = min(4, available_parallelism)`.
 
 `cargo test -p Readest translation_core -- --nocapture` (8 passed, 0 failed,
-0 ignored; 7.25 s of test time after a 1 m 48 s incremental build). Model:
+0 ignored; 7.25 s of test time after a 1 m 48 s build). Model:
 `Hy-MT2-1.8B-Q4_K_M.gguf`, English → Russian.
 
 | Metric | Value |
@@ -102,17 +102,17 @@ warm), the embedded numbers from a single test process after one model load.
 
 | Case | llama-server (HTTP) | embedded (in-process) | Δ |
 |---|---|---|---|
-| 1 word | 252 ms | 365 ms | +113 ms |
-| short sentence | 745 ms | 499 ms | −246 ms |
-| long sentence | 3582 ms | 3710 ms | +128 ms |
-| RSS of the process | 1887 MiB | 1972 MiB | +85 MiB |
+| 1 word | 252 ms | 391 ms | +139 ms |
+| short sentence | 745 ms | 475 ms | −270 ms |
+| long sentence | 3582 ms | 3543 ms | −39 ms |
+| RSS of the process | 1887 MiB | 1898 MiB | +11 MiB |
 
-Interpretation: the two are within run-to-run noise of each other on the
-sentences; the single word is slower embedded because the server keeps a warm
-KV cache and a prompt cache across requests, while the embedded run pays the
-full prefill every call. Memory is roughly unchanged (85 MiB more, inside the
-app now instead of in a second process): the win is architectural — no second
-binary, no HTTP hop, no port, no side-car supervision — not RAM.
+Interpretation: the two are within run-to-run noise of each other; the single
+word is slower embedded because it is the first call in the test process and
+pays warm-up (KV allocation, graph reservation), while the server had a warm
+KV/prompt cache. Memory is unchanged (11 MiB more, inside the app now instead
+of in a second process): the win is architectural — no second binary, no HTTP
+hop, no port, no side-car supervision — not RAM.
 
 ## Reproduce
 
