@@ -21,14 +21,26 @@ import { isCustomTranslatorAllowed } from '@/utils/access';
 import { navigateToLogin, navigateToProfile } from '@/utils/nav';
 import { useResetViewSettings } from '@/hooks/useResetSettings';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
-import { TRANSLATED_LANGS, TRANSLATOR_LANGS } from '@/services/constants';
+import {
+  DEFAULT_LOCAL_TRANSLATOR_SETTINGS,
+  TRANSLATED_LANGS,
+  TRANSLATOR_LANGS,
+} from '@/services/constants';
+import {
+  DEFAULT_LOCAL_ENDPOINT,
+  DEFAULT_LOCAL_MODEL,
+  LOCAL_TRANSLATOR_NAME,
+} from '@/services/translators/localDefaults';
+import { checkLocalEndpoint } from '@/services/translators/providers/local';
 import { ConvertChineseVariant, TranslationFont, TranslationFontStyle } from '@/types/book';
+import type { LocalTranslatorSettings } from '@/types/settings';
 import { SettingsPanelPanelProp } from './SettingsDialog';
 import { getDirFromLanguage } from '@/utils/rtl';
 import { isCJKEnv } from '@/utils/misc';
 import {
   BoxedList,
   NavigationRow,
+  SettingsInput,
   SettingsRow,
   SettingsSelect,
   SettingsSwitchRow,
@@ -84,6 +96,42 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const [showCustomDictionaries, setShowCustomDictionaries] = useState(false);
   const [showCustomTranslators, setShowCustomTranslators] = useState(false);
   const [showWordLens, setShowWordLens] = useState(false);
+
+  const [localEndpoint, setLocalEndpoint] = useState(
+    settings.localTranslator?.endpoint ?? DEFAULT_LOCAL_ENDPOINT,
+  );
+  const [localModel, setLocalModel] = useState(
+    settings.localTranslator?.model ?? DEFAULT_LOCAL_MODEL,
+  );
+  const [localCheck, setLocalCheck] = useState<{
+    status: 'idle' | 'checking' | 'ok' | 'error';
+    detail?: string;
+  }>({ status: 'idle' });
+
+  const saveLocalTranslatorSettings = async (
+    patch: Partial<LocalTranslatorSettings>,
+  ): Promise<void> => {
+    const store = useSettingsStore.getState();
+    const current = store.settings.localTranslator ?? DEFAULT_LOCAL_TRANSLATOR_SETTINGS;
+    const newSettings = { ...store.settings, localTranslator: { ...current, ...patch } };
+    store.setSettings(newSettings);
+    await store.saveSettings(envConfig, newSettings);
+  };
+
+  const handleCheckLocalConnection = async (): Promise<void> => {
+    setLocalCheck({ status: 'checking' });
+    const result = await checkLocalEndpoint(localEndpoint);
+    if (result.ok) {
+      const model = result.models[0];
+      if (model && !result.models.includes(localModel)) {
+        setLocalModel(model);
+        await saveLocalTranslatorSettings({ model });
+      }
+      setLocalCheck({ status: 'ok', detail: result.models.join(', ') });
+    } else {
+      setLocalCheck({ status: 'error', detail: result.error });
+    }
+  };
 
   // Translation is unavailable for PDFs and for books already in the target
   // language (issue #5600). The reader toolbar's toggler has always refused
@@ -198,11 +246,12 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
 
   // `customTranslators` makes the options re-render when the store hydrates.
   const isLLMProvider =
-    hasPremium &&
-    isCustomTranslatorName(translationProvider) &&
-    customTranslators.some(
-      (t) => `custom:${t.id}` === translationProvider && t.type === 'openai-compatible',
-    );
+    translationProvider === LOCAL_TRANSLATOR_NAME ||
+    (hasPremium &&
+      isCustomTranslatorName(translationProvider) &&
+      customTranslators.some(
+        (t) => `custom:${t.id}` === translationProvider && t.type === 'openai-compatible',
+      ));
 
   const getPromptOptions = () => [
     { value: DEFAULT_PROMPT_ID, label: _('Default') },
@@ -513,6 +562,50 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
               options={getPromptOptions()}
             />
           </SettingsRow>
+        )}
+        {translationProvider === LOCAL_TRANSLATOR_NAME && (
+          <>
+            <SettingsRow label={_('Endpoint')} data-setting-id='settings.language.localEndpoint'>
+              <SettingsInput
+                value={localEndpoint}
+                placeholder={DEFAULT_LOCAL_ENDPOINT}
+                spellCheck={false}
+                autoCapitalize='off'
+                aria-label={_('Endpoint')}
+                onChange={(e) => setLocalEndpoint(e.target.value)}
+                onBlur={() => saveLocalTranslatorSettings({ endpoint: localEndpoint })}
+              />
+            </SettingsRow>
+            <SettingsRow label={_('Model')} data-setting-id='settings.language.localModel'>
+              <SettingsInput
+                value={localModel}
+                placeholder={DEFAULT_LOCAL_MODEL}
+                spellCheck={false}
+                aria-label={_('Model')}
+                onChange={(e) => setLocalModel(e.target.value)}
+                onBlur={() => saveLocalTranslatorSettings({ model: localModel })}
+              />
+            </SettingsRow>
+            <SettingsRow label={_('Connection')} data-setting-id='settings.language.localTest'>
+              <div className='flex items-center gap-2'>
+                <span className='text-xs text-base-content/60'>
+                  {localCheck.status === 'ok'
+                    ? _('Connected')
+                    : localCheck.status === 'error'
+                      ? (localCheck.detail ?? _('Unreachable'))
+                      : ''}
+                </span>
+                <button
+                  type='button'
+                  className='btn btn-sm btn-contrast eink-bordered'
+                  onClick={handleCheckLocalConnection}
+                  disabled={localCheck.status === 'checking'}
+                >
+                  {localCheck.status === 'checking' ? _('Checking...') : _('Test')}
+                </button>
+              </div>
+            </SettingsRow>
+          </>
         )}
         <SettingsRow label={_('Translate To')} data-setting-id='settings.language.targetLanguage'>
           <SettingsSelect

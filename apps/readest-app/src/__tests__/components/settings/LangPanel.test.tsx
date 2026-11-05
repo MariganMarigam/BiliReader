@@ -21,6 +21,7 @@ const state = vi.hoisted(() => ({
   format: 'EPUB' as BookFormat,
   primaryLanguage: 'fr',
   translationEnabled: false,
+  provider: 'deepl',
   token: null as string | null,
   user: null as { id: string } | null,
   push: vi.fn(),
@@ -59,7 +60,7 @@ const viewSettings = () =>
   ({
     uiLanguage: '',
     translationEnabled: state.translationEnabled,
-    translationProvider: 'deepl',
+    translationProvider: state.provider,
     translateTargetLang: 'en',
     showTranslateSource: true,
     ttsReadAloudText: 'both',
@@ -104,6 +105,7 @@ describe('LangPanel — Enable Translation availability', () => {
     state.format = 'EPUB';
     state.primaryLanguage = 'fr';
     state.translationEnabled = false;
+    state.provider = 'deepl';
   });
 
   afterEach(() => {
@@ -206,6 +208,26 @@ describe('LangPanel — Custom Translators premium gate', () => {
     fireEvent.click(getCustomTranslatorsRow());
     expect(state.push).not.toHaveBeenCalled();
     expect(screen.getByText('Add Translator')).toBeTruthy();
+  });
+});
+
+describe('LangPanel — local translator', () => {
+  beforeEach(() => {
+    state.provider = 'local';
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('shows endpoint, model and connection test without a premium gate', () => {
+    state.token = null;
+    state.user = null;
+    render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
+
+    expect(screen.getByLabelText('Endpoint')).toBeTruthy();
+    expect(screen.getByLabelText('Model')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Test' })).toBeTruthy();
   });
 });
 
