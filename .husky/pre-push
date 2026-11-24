@@ -1,3 +1,6 @@
+# fork-specific: husky hook shells do not source nvm, so `pnpm` is missing from PATH
+[ -d "$HOME/.nvm/versions/node/v24.22.2/bin" ] && export PATH="$HOME/.nvm/versions/node/v24.22.2/bin:$PATH"
+
 pnpm -C apps/readest-app format:check
 pnpm -C apps/readest-app lint
 pnpm -C apps/readest-app test
