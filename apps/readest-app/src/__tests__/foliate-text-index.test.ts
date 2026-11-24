@@ -115,16 +115,20 @@ describe('buildTextIndex: sentence segmentation', () => {
     expect(sentencesOf(docFrom('<p>a</p><p>b</p>'), 'en')).toEqual(['a', 'b']);
   });
 
-  test('short segments merge forward, but not across <br>', () => {
-    const merged = sentencesOf(
-      docFrom('<p>Да. Нет. Ну хорошо, поехали дальше по тексту.</p>'),
-      'ru',
-    );
-    expect(merged.length).toBe(1);
-    expect(merged[0]).toContain('Да. Нет.');
+  test('a complete short sentence is not glued to the next one', () => {
+    expect(sentencesOf(docFrom('<p>Да. Нет.</p>'), 'ru')).toEqual(['Да.', 'Нет.']);
+  });
 
-    const split = sentencesOf(docFrom('<p>Да.<br>Нет.</p>'), 'ru');
-    expect(split).toEqual(['Да.', 'Нет.']);
+  test('the short-segment merge stops at a finished sentence', () => {
+    // Terminal punctuation and a trailing closing quote both end a sentence, so
+    // a short one stays on its own; only a fragment is merged forward.
+    expect(sentencesOf(docFrom('<p>Да! Нет?</p>'), 'ru')).toEqual(['Да!', 'Нет?']);
+    expect(sentencesOf(docFrom('<p>«Да.» Ну.</p>'), 'ru')).toEqual(['«Да.»', 'Ну.']);
+  });
+
+  test('a short segment merges forward, but not across <br>', () => {
+    const merged = sentencesOf(docFrom('<p>Да.<br>Нет.</p>'), 'ru');
+    expect(merged).toEqual(['Да.', 'Нет.']);
   });
 
   test('sentences are ascending, non-overlapping and contain no break', () => {
