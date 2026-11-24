@@ -470,6 +470,11 @@ export interface TranslatorConfig {
   translationFontSize: number;
   /** Translated text color as a hex string; '' follows the book. */
   translationColor: string;
+  /**
+   * Long-press a line to open the sentence translation (A2). Off by default
+   * until the model manager ships; exclusive with the highlight quick action.
+   */
+  sentenceTranslateEnabled?: boolean;
 }
 
 export type TranslationFont = '' | 'serif' | 'sans-serif' | 'monospace';
