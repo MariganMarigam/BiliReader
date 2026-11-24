@@ -38,6 +38,7 @@ import {
 import { UserStorageQuota, UserDailyTranslationQuota, UserDailyTTSQuota } from '@/types/quota';
 import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config';
 import { stubTranslation as _ } from '@/utils/misc';
+import { OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from '@/styles/fonts';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import {
   DEFAULT_LOCAL_ENDPOINT,
@@ -635,6 +636,7 @@ export const SERIF_FONTS = [
   'Roboto Slab',
   'Vollkorn',
   'PT Serif',
+  OFFLINE_SERIF_FONT,
   'Georgia',
   'Times New Roman',
 ];
@@ -652,7 +654,14 @@ export const CJK_SERIF_FONTS = [
 
 export const CJK_SANS_SERIF_FONTS = ['Noto Sans SC', 'Noto Sans TC'];
 
-export const SANS_SERIF_FONTS = ['Roboto', 'Noto Sans', 'Open Sans', 'PT Sans', 'Helvetica'];
+export const SANS_SERIF_FONTS = [
+  'Roboto',
+  'Noto Sans',
+  'Open Sans',
+  'PT Sans',
+  OFFLINE_SANS_FONT,
+  'Helvetica',
+];
 
 export const MONOSPACE_FONTS = [
   'Fira Code',

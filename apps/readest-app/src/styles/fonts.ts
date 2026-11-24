@@ -51,6 +51,57 @@ const DEFAULT_FONT_BASE_URL = 'https://storage.readest.com/public/font/dist';
 const getFontBaseUrl = () =>
   (getRuntimeConfig()?.fontBaseUrl || DEFAULT_FONT_BASE_URL).replace(/\/+$/, '');
 
+/**
+ * Fonts bundled inside the app under `public/fonts` so Cyrillic (and the rest
+ * of the Latin/serif fallback stack) still renders when Google Fonts is
+ * unreachable. Nothing here hits the network — the faces resolve from the
+ * package itself.
+ */
+export const OFFLINE_SERIF_FONT = 'PT Serif (offline)';
+export const OFFLINE_SANS_FONT = 'PT Sans (offline)';
+
+interface OfflineFontFamily {
+  family: string;
+  files: { file: string; weight: number; style: FontStyle }[];
+}
+
+const offlineFontFamilies: OfflineFontFamily[] = [
+  {
+    family: OFFLINE_SERIF_FONT,
+    files: [
+      { file: '/fonts/ptserif/PT_Serif-Web-Regular.ttf', weight: 400, style: 'normal' },
+      { file: '/fonts/ptserif/PT_Serif-Web-Bold.ttf', weight: 700, style: 'normal' },
+      { file: '/fonts/ptserif/PT_Serif-Web-Italic.ttf', weight: 400, style: 'italic' },
+      { file: '/fonts/ptserif/PT_Serif-Web-BoldItalic.ttf', weight: 700, style: 'italic' },
+    ],
+  },
+  {
+    family: OFFLINE_SANS_FONT,
+    files: [
+      { file: '/fonts/ptsans/PT_Sans-Web-Regular.ttf', weight: 400, style: 'normal' },
+      { file: '/fonts/ptsans/PT_Sans-Web-Bold.ttf', weight: 700, style: 'normal' },
+      { file: '/fonts/ptsans/PT_Sans-Web-Italic.ttf', weight: 400, style: 'italic' },
+      { file: '/fonts/ptsans/PT_Sans-Web-BoldItalic.ttf', weight: 700, style: 'italic' },
+    ],
+  },
+];
+
+export const getOfflineFontFaces = () =>
+  offlineFontFamilies
+    .flatMap(({ family, files }) =>
+      files.map(
+        ({ file, weight, style }) => `
+  @font-face {
+    font-family: "${family}";
+    font-weight: ${weight};
+    font-style: ${style};
+    font-display: swap;
+    src: url("${file}") format("truetype");
+  }`,
+      ),
+    )
+    .join('');
+
 const getAdditionalCJKFontLinks = () => {
   const fontBaseUrl = getFontBaseUrl();
   return `
@@ -121,10 +172,10 @@ export const mountAdditionalFonts = async (document: Document, isCJK = false) =>
 
   // Mount font stylesheets and @font-face rules
   let links = getAdditionalBasicFontLinks();
-  let fontFaces = '';
+  let fontFaces = getOfflineFontFaces();
 
   if (mountCJKFonts) {
-    fontFaces = getAdditionalCJKFontFaces();
+    fontFaces += getAdditionalCJKFontFaces();
     links = `${links}\n${getAdditionalCJKFontLinks()}`;
   }
 

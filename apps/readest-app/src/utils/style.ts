@@ -14,7 +14,7 @@ import {
   generateLightPalette,
   generateDarkPalette,
 } from '@/styles/themes';
-import { createFontCSS, CustomFont } from '@/styles/fonts';
+import { createFontCSS, CustomFont, OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from '@/styles/fonts';
 import { isDialogueHighlightActive } from './dialogueHighlight';
 import { readStoredAmbientIsDarkMode } from './ambientLight';
 import { INLINE_FORMATTING_SELECTOR } from './inlineTags';
@@ -45,23 +45,36 @@ const buildFontFamilyLists = (
     serif,
     ...(defaultCJKFont !== serif ? [defaultCJKFont] : []),
     ...SERIF_FONTS.filter(
-      (font) => font !== serif && font !== defaultCJKFont && !lastSerifFonts.includes(font),
+      (font) =>
+        font !== serif &&
+        font !== defaultCJKFont &&
+        font !== OFFLINE_SERIF_FONT &&
+        !lastSerifFonts.includes(font),
     ),
     ...CJK_SERIF_FONTS.filter((font) => font !== serif && font !== defaultCJKFont),
     ...lastSerifFonts.filter(
       (font) => SERIF_FONTS.includes(font) && !lastSerifFonts.includes(defaultCJKFont),
     ),
     ...FALLBACK_FONTS,
+    // Bundled last resort: with no network the chain still lands on a
+    // shipped face instead of the platform's arbitrary serif.
+    OFFLINE_SERIF_FONT,
   ];
   const sansSerifFonts = [
     sansSerif,
     ...(defaultCJKFont !== sansSerif ? [defaultCJKFont] : []),
-    ...SANS_SERIF_FONTS.filter((font) => font !== sansSerif && font !== defaultCJKFont),
+    ...SANS_SERIF_FONTS.filter(
+      (font) => font !== sansSerif && font !== defaultCJKFont && font !== OFFLINE_SANS_FONT,
+    ),
     ...CJK_SANS_SERIF_FONTS.filter((font) => font !== sansSerif && font !== defaultCJKFont),
     ...FALLBACK_FONTS,
+    OFFLINE_SANS_FONT,
   ];
   const monospaceFonts = [monospace, ...MONOSPACE_FONTS.filter((font) => font !== monospace)];
-  const quote = (fonts: string[]) => fonts.map((font) => `"${font}"`).join(', ');
+  const quote = (fonts: string[]) =>
+    Array.from(new Set(fonts))
+      .map((font) => `"${font}"`)
+      .join(', ');
   return {
     serif: `${quote(serifFonts)}, serif`,
     sansSerif: `${quote(sansSerifFonts)}, sans-serif`,

@@ -20,6 +20,9 @@ import {
   createCustomFont,
   mountAdditionalFonts,
   mountCustomFont,
+  getOfflineFontFaces,
+  OFFLINE_SANS_FONT,
+  OFFLINE_SERIF_FONT,
   type FontFormat,
   type CustomFont,
 } from '@/styles/fonts';
@@ -355,8 +358,10 @@ describe('mountAdditionalFonts', () => {
   it('should not mount CJK fonts when isCJK is false', async () => {
     await mountAdditionalFonts(document, false);
 
+    // The bundled offline faces are always mounted; the CJK ones are not.
     const styles = document.head.querySelectorAll('style');
-    expect(styles.length).toBe(0);
+    expect(styles.length).toBe(1);
+    expect(styles[0]!.textContent).toContain(OFFLINE_SERIF_FONT);
 
     const links = document.head.querySelectorAll('link');
     const hrefs = Array.from(links).map((l) => l.getAttribute('href') || '');
@@ -488,5 +493,42 @@ describe('mountCustomFont', () => {
     expect(() => mountCustomFont(document, fontNoBlobUrl)).toThrow(
       'Blob URL not available for font: TestFont',
     );
+  });
+});
+
+describe('bundled offline font families', () => {
+  it('registers every PT Serif and PT Sans face locally', () => {
+    const css = getOfflineFontFaces();
+
+    expect(css).toContain(`font-family: "${OFFLINE_SERIF_FONT}"`);
+    expect(css).toContain(`font-family: "${OFFLINE_SANS_FONT}"`);
+
+    for (const family of ['PT_Serif', 'PT_Sans']) {
+      const dir = family === 'PT_Serif' ? 'ptserif' : 'ptsans';
+      for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic']) {
+        expect(css).toContain(`url("/fonts/${dir}/${family}-Web-${style}.ttf")`);
+      }
+    }
+  });
+
+  it('never references a remote URL', () => {
+    const css = getOfflineFontFaces();
+    expect(css).not.toMatch(/https?:\/\//);
+    const urls: string[] = [];
+    for (const match of css.matchAll(/url\("([^"]+)"\)/g)) {
+      urls.push(match[1]!);
+    }
+    expect(urls.length).toBe(8);
+    for (const url of urls) {
+      expect(url.startsWith('/fonts/')).toBe(true);
+    }
+  });
+
+  it('mounts the offline faces into a non-CJK document', async () => {
+    document.head.innerHTML = '';
+    await mountAdditionalFonts(document, false);
+    const styleContent = document.head.querySelector('style')?.textContent || '';
+    expect(styleContent).toContain(`"${OFFLINE_SERIF_FONT}"`);
+    expect(styleContent).toContain(`"${OFFLINE_SANS_FONT}"`);
   });
 });
