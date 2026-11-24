@@ -1,6 +1,56 @@
 import { FontStyle } from '@/styles/fonts';
 import { getUserLang } from './misc';
 
+/** Largest font file accepted by the importer (20 MB). */
+export const MAX_FONT_FILE_SIZE = 20 * 1024 * 1024;
+
+/** Largest number of user-imported fonts the library keeps at once. */
+export const MAX_CUSTOM_FONTS = 50;
+
+/**
+ * Container signatures the importer accepts: TrueType (`0x00010000`),
+ * Apple `true`, OpenType CFF (`OTTO`), and the WOFF/WOFF2 wrappers (the
+ * importer has always advertised those extensions).
+ */
+const SUPPORTED_FONT_SIGNATURES = new Set([
+  0x00010000, // TrueType sfnt
+  0x74727565, // 'true'
+  0x4f54544f, // 'OTTO'
+  0x774f4646, // 'wOFF'
+  0x774f4632, // 'wOF2'
+]);
+
+/** Thrown when an imported file is structurally not a font, too large, or unsupported. */
+export class InvalidFontError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidFontError';
+  }
+}
+
+/**
+ * Throw when `fontData` cannot be a font at all: too small for an sfnt header,
+ * an unrecognised container signature, or over the import size limit.
+ *
+ * Deliberately fatal — an unrecognised file used to be accepted under its
+ * filename, which produced a font card that rendered nothing.
+ */
+export const validateFontData = (fontData: ArrayBuffer, filename: string): void => {
+  const invalidMessage = `"${filename}" is not a valid font file. Please select a TTF, OTF, WOFF, or WOFF2 file.`;
+  if (fontData.byteLength > MAX_FONT_FILE_SIZE) {
+    throw new InvalidFontError(
+      `"${filename}" is too large. The maximum font size is ${MAX_FONT_FILE_SIZE / (1024 * 1024)} MB.`,
+    );
+  }
+  if (fontData.byteLength < 12) {
+    throw new InvalidFontError(invalidMessage);
+  }
+  const signature = new DataView(fontData).getUint32(0, false);
+  if (!SUPPORTED_FONT_SIGNATURES.has(signature)) {
+    throw new InvalidFontError(invalidMessage);
+  }
+};
+
 function parseUnicodeString(dataView: DataView, offset: number, length: number): string {
   const chars: string[] = [];
   for (let i = 0; i < length; i += 2) {
@@ -208,12 +258,11 @@ type FontNameType = {
 
 export const parseFontInfo = (fontData: ArrayBuffer, filename: string) => {
   const fallbackName = filename.replace(/\.[^/.]+$/, '');
+  // Structural problems are fatal: importing a non-font must fail loudly
+  // instead of registering a card that renders nothing.
+  validateFontData(fontData, filename);
   try {
     const dataView = new DataView(fontData);
-    const signature = dataView.getUint32(0, false);
-    if (signature !== 0x00010000 && signature !== 0x74727565 && signature !== 0x4f54544f) {
-      throw new Error('Unsupported font format');
-    }
     const numTables = dataView.getUint16(4, false);
     let nameTableOffset = 0;
     let os2TableOffset = 0;

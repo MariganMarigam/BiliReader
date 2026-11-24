@@ -136,6 +136,9 @@ const selectFileTauri = async (
       (options.type === 'books' ||
         options.type === 'dictionaries' ||
         options.type === 'audio' ||
+        // Android's MIME table has no reliable mapping for .ttf/.otf, so a
+        // filtered picker greys out exactly the files people import.
+        options.type === 'fonts' ||
         options.type === 'generic'));
   const exts = noFilter ? [] : options.extensions || [];
   const title = options.dialogTitle || _('Select Files');
@@ -192,7 +195,23 @@ export const useFileSelector = (appService: AppService | null, _: TranslationFun
         return { files };
       } else {
         const webFiles = await selectFileWeb(options);
-        const files = processWebFiles(webFiles);
+        // `accept` is only a hint: an "All files" switch or a drag/drop
+        // bypasses it. Re-apply the whitelist so the caller never receives a
+        // file the preset does not support.
+        const extensions = options.extensions || ['*'];
+        const allowedFiles = webFiles.filter((file) => hasAllowedExtension(file.name, extensions));
+        if (allowedFiles.length < webFiles.length && options.type === 'fonts') {
+          const filenames = webFiles
+            .filter((file) => !allowedFiles.includes(file))
+            .map((file) => file.name)
+            .join(', ');
+          eventDispatcher.dispatch('toast', {
+            type: 'error',
+            message: _('Failed to import font(s): {{filenames}}', { filenames }),
+            timeout: 5000,
+          });
+        }
+        const files = processWebFiles(allowedFiles);
         return { files };
       }
     } catch (error) {

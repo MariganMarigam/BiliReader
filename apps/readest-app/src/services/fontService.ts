@@ -3,7 +3,7 @@ import { getFilename } from '@/utils/path';
 import { md5, partialMD5 } from '@/utils/md5';
 import { uniqueId } from '@/utils/misc';
 import { CustomFont, CustomFontInfo } from '@/styles/fonts';
-import { parseFontInfo } from '@/utils/font';
+import { parseFontInfo, validateFontData } from '@/utils/font';
 
 /**
  * Build the cross-device content id for a font:
@@ -42,6 +42,10 @@ export async function importFont(
   } else {
     return null;
   }
+
+  // Reject before touching the filesystem: an unsupported/oversized file must
+  // leave no bundle dir behind, and the caller shows the thrown message.
+  validateFontData(bytes, filename);
 
   const fontPath = `${bundleDir}/${filename}`;
   await fs.createDir(bundleDir, 'Fonts', true);

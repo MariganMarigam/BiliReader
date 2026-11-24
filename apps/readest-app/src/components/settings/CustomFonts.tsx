@@ -11,6 +11,7 @@ import { useTransferStore } from '@/store/transferStore';
 import { useFileSelector } from '@/hooks/useFileSelector';
 import { saveViewSettings } from '@/helpers/settings';
 import { CustomFont, mountCustomFont } from '@/styles/fonts';
+import { MAX_CUSTOM_FONTS } from '@/utils/font';
 import {
   queueReplicaBinaryDownload,
   queueReplicaBinaryUpload,
@@ -56,34 +57,58 @@ const CustomFonts: React.FC<CustomFontsProps> = ({ bookKey, onBack }) => {
   const currentFontFamily =
     currentDefaultFont === 'serif' ? viewSettings.serifFont : viewSettings.sansSerifFont;
 
+  const showImportError = (message: string) => {
+    eventDispatcher.dispatch('toast', { type: 'error', message, timeout: 5000 });
+  };
+
   const handleImportFont = () => {
     selectFiles({ type: 'fonts', multiple: true }).then(async (result) => {
-      if (result.error || result.files.length === 0) return;
+      if (result.error) {
+        showImportError(result.error);
+        return;
+      }
+      if (result.files.length === 0) return;
+      // Cap the library before touching the filesystem: importing past the
+      // limit would leave orphaned bundle dirs for the rejected files.
+      if (getAvailableFonts().length + result.files.length > MAX_CUSTOM_FONTS) {
+        showImportError(
+          _('You can import at most {{max}} custom fonts. Delete one before adding another.', {
+            max: MAX_CUSTOM_FONTS,
+          }),
+        );
+        return;
+      }
       setImportingFont(true);
       try {
         for (const selectedFile of result.files) {
-          const fontInfo = await appService?.importFont(selectedFile.path || selectedFile.file);
-          if (!fontInfo) continue;
+          try {
+            const fontInfo = await appService?.importFont(selectedFile.path || selectedFile.file);
+            if (!fontInfo) continue;
 
-          // Replace the spinner with the resolved font family name in-place,
-          // so the card stays at the same grid position without layout jump.
-          setImportingFont({ family: fontInfo.family });
+            // Replace the spinner with the resolved font family name in-place,
+            // so the card stays at the same grid position without layout jump.
+            setImportingFont({ family: fontInfo.family });
 
-          const customFont = addFont(fontInfo.path, {
-            name: fontInfo.name,
-            family: fontInfo.family,
-            style: fontInfo.style,
-            weight: fontInfo.weight,
-            variable: fontInfo.variable,
-            contentId: fontInfo.contentId,
-            bundleDir: fontInfo.bundleDir,
-            byteSize: fontInfo.byteSize,
-          });
-          console.log('Added custom font:', customFont);
-          if (customFont && !customFont.error) {
-            const loadedFont = await loadFont(envConfig, customFont.id);
-            mountCustomFont(document, loadedFont);
-            if (appService) void queueReplicaBinaryUpload('font', customFont, appService);
+            const customFont = addFont(fontInfo.path, {
+              name: fontInfo.name,
+              family: fontInfo.family,
+              style: fontInfo.style,
+              weight: fontInfo.weight,
+              variable: fontInfo.variable,
+              contentId: fontInfo.contentId,
+              bundleDir: fontInfo.bundleDir,
+              byteSize: fontInfo.byteSize,
+            });
+            console.log('Added custom font:', customFont);
+            if (customFont && !customFont.error) {
+              const loadedFont = await loadFont(envConfig, customFont.id);
+              mountCustomFont(document, loadedFont);
+              if (appService) void queueReplicaBinaryUpload('font', customFont, appService);
+            }
+          } catch (error) {
+            // A rejected file (bad signature, oversize) must not abort the
+            // rest of a multi-file selection — surface it and keep going.
+            showImportError(error instanceof Error ? error.message : String(error));
           }
         }
         saveCustomFonts(envConfig);

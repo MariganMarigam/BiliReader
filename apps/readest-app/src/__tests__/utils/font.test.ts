@@ -5,7 +5,13 @@ vi.mock('@/utils/misc', () => ({
 }));
 
 import { getUserLang } from '@/utils/misc';
-import { parseFontInfo, isFontType } from '@/utils/font';
+import {
+  parseFontInfo,
+  isFontType,
+  validateFontData,
+  InvalidFontError,
+  MAX_FONT_FILE_SIZE,
+} from '@/utils/font';
 
 // ---------------------------------------------------------------------------
 // helpers: build minimal valid TrueType font binary data
@@ -341,18 +347,22 @@ describe('parseFontInfo', () => {
     expect(info.family).toBe('Roboto');
   });
 
-  it('falls back to filename when font data is invalid', () => {
-    const buf = new ArrayBuffer(10); // too small to be valid
-    const info = parseFontInfo(buf, 'MyFont.ttf');
-    expect(info.family).toBe('MyFont');
-    expect(info.name).toBe('MyFont');
-    expect(info.weight).toBe(400);
-    expect(info.style).toBe('normal');
-    expect(info.variable).toBe(false);
+  it('rejects data too small to be a font', () => {
+    const buf = new ArrayBuffer(10);
+    expect(() => parseFontInfo(buf, 'MyFont.ttf')).toThrow(InvalidFontError);
   });
 
-  it('falls back to filename with extension stripped', () => {
-    const buf = new ArrayBuffer(4);
+  it('rejects an unrecognised container signature', () => {
+    const buf = new ArrayBuffer(64);
+    new DataView(buf).setUint32(0, 0x7f454c46, false); // ELF magic
+    expect(() => parseFontInfo(buf, 'Some Font Name.otf')).toThrow(
+      '"Some Font Name.otf" is not a valid font file. Please select a TTF, OTF, WOFF, or WOFF2 file.',
+    );
+  });
+
+  it('falls back to the filename when an sfnt font has no name table', () => {
+    const buf = new ArrayBuffer(12);
+    new DataView(buf).setUint32(0, 0x00010000, false); // trueType sfnt, 0 tables
     const info = parseFontInfo(buf, 'Some Font Name.otf');
     expect(info.family).toBe('Some Font Name');
     expect(info.name).toBe('Some Font Name');
@@ -477,6 +487,41 @@ describe('parseFontInfo', () => {
     });
     const info = parseFontInfo(buf, 'test.ttf');
     expect(info.style).toBe('italic');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateFontData
+// ---------------------------------------------------------------------------
+describe('validateFontData', () => {
+  const signatureBuffer = (signature: number) => {
+    const buf = new ArrayBuffer(16);
+    new DataView(buf).setUint32(0, signature, false);
+    return buf;
+  };
+
+  it('accepts the sfnt, true, OTTO, and WOFF/WOFF2 signatures', () => {
+    for (const signature of [0x00010000, 0x74727565, 0x4f54544f, 0x774f4646, 0x774f4632]) {
+      expect(() => validateFontData(signatureBuffer(signature), 'font.ttf')).not.toThrow();
+    }
+  });
+
+  it('rejects a file whose signature is not a font container', () => {
+    const buf = new ArrayBuffer(64);
+    new DataView(buf).setUint32(0, 0x25504446, false); // '%PDF'
+    expect(() => validateFontData(buf, 'notes.ttf')).toThrow(
+      '"notes.ttf" is not a valid font file. Please select a TTF, OTF, WOFF, or WOFF2 file.',
+    );
+  });
+
+  it('rejects a file too short to hold a font header', () => {
+    expect(() => validateFontData(new ArrayBuffer(4), 'tiny.ttf')).toThrow(InvalidFontError);
+  });
+
+  it('rejects files above the 20 MB limit', () => {
+    const buf = new ArrayBuffer(MAX_FONT_FILE_SIZE + 1);
+    new DataView(buf).setUint32(0, 0x00010000, false);
+    expect(() => validateFontData(buf, 'huge.ttf')).toThrow('The maximum font size is 20 MB');
   });
 });
 
