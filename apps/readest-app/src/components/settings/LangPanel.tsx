@@ -17,6 +17,7 @@ import { isTranslationAvailable } from '@/services/translators/utils';
 import { DEFAULT_PROMPT_ID, isCustomTranslatorName } from '@/services/translators/custom';
 import { useCustomTranslatorStore } from '@/store/customTranslatorStore';
 import { getLocale } from '@/utils/misc';
+import { isTauriAppPlatform } from '@/services/environment';
 import { isCustomTranslatorAllowed } from '@/utils/access';
 import { navigateToLogin, navigateToProfile } from '@/utils/nav';
 import { useResetViewSettings } from '@/hooks/useResetSettings';
@@ -98,7 +99,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const [showWordLens, setShowWordLens] = useState(false);
 
   const [localEndpoint, setLocalEndpoint] = useState(
-    settings.localTranslator?.endpoint ?? DEFAULT_LOCAL_ENDPOINT,
+    settings.localTranslator?.endpoint ?? (isTauriAppPlatform() ? '' : DEFAULT_LOCAL_ENDPOINT),
   );
   const [localModel, setLocalModel] = useState(
     settings.localTranslator?.model ?? DEFAULT_LOCAL_MODEL,
@@ -565,10 +566,20 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
         )}
         {translationProvider === LOCAL_TRANSLATOR_NAME && (
           <>
-            <SettingsRow label={_('Endpoint')} data-setting-id='settings.language.localEndpoint'>
+            <SettingsRow
+              label={_('Endpoint')}
+              description={
+                isTauriAppPlatform()
+                  ? _('Desktop uses the built-in engine; the endpoint only applies to the web app.')
+                  : undefined
+              }
+              data-setting-id='settings.language.localEndpoint'
+            >
               <SettingsInput
                 value={localEndpoint}
-                placeholder={DEFAULT_LOCAL_ENDPOINT}
+                placeholder={
+                  isTauriAppPlatform() ? _('Optional on desktop') : DEFAULT_LOCAL_ENDPOINT
+                }
                 spellCheck={false}
                 autoCapitalize='off'
                 aria-label={_('Endpoint')}

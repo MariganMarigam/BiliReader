@@ -445,11 +445,16 @@ export interface HardwarePageTurnerSettings {
 
 /** Local OpenAI-compatible translation server (llama.cpp / llama-server). Device-local. */
 export interface LocalTranslatorSettings {
-  /** Base URL including the API version path, e.g. http://127.0.0.1:8080/v1 */
+  /** Base URL including the API version path, e.g. http://127.0.0.1:8080/v1. Web-only: desktop uses the embedded engine. */
   endpoint: string;
   model: string;
   /** Sampling temperature; no UI yet, set in settings JSON / future panel. */
   temperature: number;
+  /**
+   * Directory holding the embedded engine's GGUF. Empty or missing means the
+   * core's default directory. Desktop-only; ignored by the HTTP transport.
+   */
+  modelsDir?: string;
 }
 
 export interface SystemSettings {
