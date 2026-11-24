@@ -146,7 +146,7 @@ describe('custom translators in the registry and useTranslator', () => {
     expect(out).toEqual(['Bonjour']);
     expect(generateTextMock.mock.calls[0]![0].system).toContain('Candide');
     const cacheKey = storeInCacheMock.mock.calls[0]![4] as string;
-    expect(cacheKey).toMatch(/^local#/);
+    expect(cacheKey).toMatch(/^(?:http|embedded)#local#/);
   });
 
   it('reports an unavailable local server instead of falling back to a cloud provider', async () => {
