@@ -15,6 +15,34 @@ use super::*;
 
 static ENGINE: OnceLock<Option<Arc<LlamaEngine>>> = OnceLock::new();
 static SERIAL: Mutex<()> = Mutex::new(());
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+#[test]
+fn models_dir_prefers_env_and_never_embeds_a_home_path() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let previous = std::env::var_os(MODELS_DIR_ENV);
+    let data_dir = PathBuf::from("/tmp/bireader-data-dir");
+
+    std::env::set_var(MODELS_DIR_ENV, "/tmp/bireader-models");
+    let override_dir = resolve_models_dir(Some(data_dir.clone()));
+
+    std::env::set_var(MODELS_DIR_ENV, "");
+    let default_dir = resolve_models_dir(Some(data_dir.clone()));
+
+    match previous {
+        Some(value) => std::env::set_var(MODELS_DIR_ENV, value),
+        None => std::env::remove_var(MODELS_DIR_ENV),
+    }
+
+    assert_eq!(override_dir, PathBuf::from("/tmp/bireader-models"));
+    assert_eq!(default_dir, data_dir.join("bilireader").join("models"));
+    assert!(default_dir.is_absolute(), "{}", default_dir.display());
+    assert!(
+        !default_dir.to_string_lossy().contains("/home/"),
+        "default model dir must not embed a home path: {}",
+        default_dir.display()
+    );
+}
 
 const LONG_SENTENCE: &str = "The old lighthouse keeper climbed the spiral staircase every evening \
 before sunset to trim the lamp and write a short entry in the logbook about the weather, the \

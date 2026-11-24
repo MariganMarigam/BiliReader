@@ -3,12 +3,12 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 use super::engine::{CancelToken, Engine as _, EngineRequest, FnSink};
 use super::error::EngineError;
 use super::{
-    cancel_job, validate_text, CoreStatus, LocalTranslation, TranslationCore, DEFAULT_MODEL_DIR,
+    cancel_job, resolve_models_dir, validate_text, CoreStatus, LocalTranslation, TranslationCore,
 };
 
 /// Default cap on generated tokens for one IPC call.
@@ -18,10 +18,12 @@ const TOKEN_EVENT: &str = "translation://token";
 
 /// Load (idempotently) the embedded engine and report its status.
 ///
-/// An empty `models_dir` means [`DEFAULT_MODEL_DIR`]. `BIREADER_MODEL_PATH`
-/// overrides the resolved GGUF path.
+/// An empty `models_dir` means [`resolve_models_dir`]'s default
+/// (`BIREADER_MODELS_DIR`, else the per-user data directory).
+/// `BIREADER_MODEL_PATH` overrides the resolved GGUF path.
 #[tauri::command]
 pub async fn local_engine_status(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TranslationCore>,
     models_dir: String,
 ) -> Result<CoreStatus, String> {
@@ -29,7 +31,7 @@ pub async fn local_engine_status(
         inner: state.inner.clone(),
     };
     let dir = if models_dir.trim().is_empty() {
-        PathBuf::from(DEFAULT_MODEL_DIR)
+        resolve_models_dir(app.path().data_dir().ok())
     } else {
         PathBuf::from(models_dir)
     };

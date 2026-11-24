@@ -16,8 +16,8 @@ use engine::CancelToken;
 use error::{CoreError, EngineError};
 use llama::{LlamaConfig, LlamaEngine, LLAMA_CPP_PIN, WRAPPER};
 
-/// Default model directory on dev machines; the app normally passes its own.
-pub const DEFAULT_MODEL_DIR: &str = "/home/codexrescriptus/.local/share/bilireader/models";
+/// Environment override for the model directory.
+pub const MODELS_DIR_ENV: &str = "BIREADER_MODELS_DIR";
 /// GGUF filename inside the model directory.
 pub const MODEL_FILENAME: &str = "Hy-MT2-1.8B-Q4_K_M.gguf";
 
@@ -151,6 +151,31 @@ impl TranslationCore {
             *guard = message;
         }
     }
+}
+
+/// Resolve the local model directory.
+///
+/// `BIREADER_MODELS_DIR` wins when set and non-empty; otherwise
+/// `<data_dir>/bilireader/models`. `data_dir` is the caller's platform data
+/// directory (Tauri's `PathResolver::data_dir`); when it is unavailable the
+/// XDG/`$HOME` fallback is used so no per-machine path is ever hardcoded.
+pub fn resolve_models_dir(data_dir: Option<PathBuf>) -> PathBuf {
+    if let Some(dir) = std::env::var_os(MODELS_DIR_ENV).filter(|v| !v.is_empty()) {
+        return PathBuf::from(dir);
+    }
+    let base = data_dir
+        .or_else(|| {
+            std::env::var_os("XDG_DATA_HOME")
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from)
+        })
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .filter(|v| !v.is_empty())
+                .map(|home| PathBuf::from(home).join(".local").join("share"))
+        })
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("bilireader").join("models")
 }
 
 /// Resolve the GGUF path: `BIREADER_MODEL_PATH` wins, then `models_dir`.
