@@ -5,6 +5,7 @@ import {
   rangeFromOffsets,
   sentenceAt,
 } from 'foliate-js/text-index.js';
+import { clearSentenceIndexCache, getDocIndex } from '@/app/reader/utils/sentenceIndex';
 
 // The engine index is DOM-only: no geometry, no iframe. That makes it testable
 // in jsdom and keeps the app free of a second text walker.
@@ -175,5 +176,26 @@ describe('offsetFromPosition', () => {
     expect(offsetFromPosition(index, foreign, 0)).toBe(-1);
     const comment = doc.createComment('note');
     expect(offsetFromPosition(index, comment, 0)).toBe(-1);
+  });
+});
+
+describe('sentenceIndex cache', () => {
+  test('memoizes the index per Document', () => {
+    const doc = docFrom('<p>Кэш. Проверка.</p>');
+    const first = getDocIndex(doc);
+    const second = getDocIndex(doc);
+    expect(first).not.toBeNull();
+    expect(second).toBe(first);
+    expect(first!.text).toBe('Кэш. Проверка.');
+  });
+
+  test('clearSentenceIndexCache drops the cached entry', () => {
+    const doc = docFrom('<p>Сброс кэша.</p>');
+    const first = getDocIndex(doc);
+    clearSentenceIndexCache();
+    const second = getDocIndex(doc);
+    expect(second).not.toBe(first);
+    expect(second!.text).toBe(first!.text);
+    expect(second!.hash).toBe(first!.hash);
   });
 });
