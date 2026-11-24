@@ -7,13 +7,15 @@ import { render, cleanup, fireEvent, screen, waitFor } from '@testing-library/re
  */
 
 vi.mock('@/hooks/useTranslation', () => ({
-  useTranslation: () => (s: string) => s,
+  useTranslation: () => (s: string, options?: Record<string, string | number>) =>
+    s.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(options?.[key] ?? '')),
 }));
+const { selectFilesMock } = vi.hoisted(() => ({ selectFilesMock: vi.fn() }));
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ appService: {}, envConfig: {} }),
 }));
 vi.mock('@/hooks/useFileSelector', () => ({
-  useFileSelector: () => ({ selectFiles: vi.fn() }),
+  useFileSelector: () => ({ selectFiles: selectFilesMock }),
 }));
 vi.mock('@/helpers/settings', () => ({
   saveViewSettings: vi.fn(),
@@ -29,6 +31,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useTransferStore } from '@/store/transferStore';
 import { saveViewSettings } from '@/helpers/settings';
 import { queueReplicaBinaryDownload } from '@/services/sync/replicaBinaryUpload';
+import { eventDispatcher } from '@/utils/event';
+import { MAX_CUSTOM_FONTS } from '@/utils/font';
 import type { CustomFont } from '@/styles/fonts';
 import type { SystemSettings } from '@/types/settings';
 
@@ -97,5 +101,34 @@ describe('CustomFonts download on demand', () => {
     fireEvent.click(screen.getByText('Inter'));
     expect(queueReplicaBinaryDownload).not.toHaveBeenCalled();
     expect(saveViewSettings).toHaveBeenCalledWith({}, '', 'sansSerifFont', 'Inter');
+  });
+});
+
+describe('CustomFonts import cap', () => {
+  it('refuses an import that would exceed the custom-font limit', async () => {
+    const fonts = Array.from({ length: MAX_CUSTOM_FONTS }, (_, index) =>
+      cloudFont({
+        id: `font-${index}`,
+        contentId: `hash-${index}`,
+        name: `Font ${index}`,
+        family: `Family ${index}`,
+        unavailable: undefined,
+      }),
+    );
+    useCustomFontStore.setState({ fonts });
+    selectFilesMock.mockResolvedValue({ files: [{ file: new File([], 'extra.ttf') }] });
+    const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
+
+    render(<CustomFonts bookKey='' onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Import Font'));
+
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith('toast', {
+        type: 'error',
+        message: 'You can import at most 50 custom fonts. Delete one before adding another.',
+        timeout: 5000,
+      }),
+    );
+    expect(useCustomFontStore.getState().getAvailableFonts()).toHaveLength(MAX_CUSTOM_FONTS);
   });
 });
