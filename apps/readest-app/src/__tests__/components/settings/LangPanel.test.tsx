@@ -26,6 +26,7 @@ const state = vi.hoisted(() => ({
   user: null as { id: string } | null,
   push: vi.fn(),
   setViewSettings: vi.fn(),
+  quickActionHighlight: false,
 }));
 
 vi.mock('@/hooks/useTranslation', () => ({
@@ -66,6 +67,9 @@ const viewSettings = () =>
     ttsReadAloudText: 'both',
     replaceQuotationMarks: false,
     convertChineseVariant: 'none',
+    sentenceTranslateEnabled: false,
+    enableAnnotationQuickActions: state.quickActionHighlight,
+    annotationQuickAction: state.quickActionHighlight ? 'highlight' : 'none',
   }) as unknown as ViewSettings;
 
 vi.mock('@/store/settingsStore', () => {
@@ -157,6 +161,51 @@ describe('LangPanel — Enable Translation availability', () => {
     render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
 
     expect(getEnableTranslationToggle().disabled).toBe(false);
+  });
+});
+
+const getSentenceTranslateToggle = () =>
+  screen
+    .getByText('Translate a Held Line')
+    .closest('label')!
+    .querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+// A2: holding a line translates that sentence. The switch ships off until the
+// model manager lands, and it is locked while the highlight quick action owns
+// the same still hold (the two gestures are mutually exclusive).
+describe('LangPanel — Translate a Held Line', () => {
+  beforeEach(() => {
+    state.quickActionHighlight = false;
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('is off by default and saves the flag when switched on', () => {
+    vi.mocked(saveViewSettings).mockClear();
+    render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
+
+    const toggle = getSentenceTranslateToggle();
+    expect(toggle.checked).toBe(false);
+
+    fireEvent.click(toggle);
+    expect(saveViewSettings).toHaveBeenCalledWith(
+      expect.anything(),
+      'book-1',
+      'sentenceTranslateEnabled',
+      true,
+      true,
+      false,
+    );
+  });
+
+  it('is locked while the highlight quick action owns the hold', () => {
+    state.quickActionHighlight = true;
+    render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
+
+    expect(getSentenceTranslateToggle().disabled).toBe(true);
+    expect(screen.getByText('Turn off the highlight quick action to use this.')).toBeTruthy();
   });
 });
 

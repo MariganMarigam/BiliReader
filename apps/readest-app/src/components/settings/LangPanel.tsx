@@ -75,6 +75,9 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const customTranslators = useCustomTranslatorStore((s) => s.translators);
   const prompts = useCustomTranslatorStore((s) => s.prompts);
   const [showTranslateSource, setShowTranslateSource] = useState(viewSettings.showTranslateSource);
+  const [sentenceTranslateEnabled, setSentenceTranslateEnabled] = useState(
+    viewSettings.sentenceTranslateEnabled ?? false,
+  );
   const [ttsReadAloudText, setTtsReadAloudText] = useState(viewSettings.ttsReadAloudText);
   const [translationFont, setTranslationFont] = useState<string>(
     viewSettings.translationFont ?? '',
@@ -183,6 +186,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
       translateTargetLang: setTranslateTargetLang,
       translationPromptId: setTranslationPromptId,
       showTranslateSource: setShowTranslateSource,
+      sentenceTranslateEnabled: setSentenceTranslateEnabled,
       ttsReadAloudText: setTtsReadAloudText,
       translationFont: setTranslationFont,
       translationFontStyle: setTranslationFontStyle,
@@ -369,6 +373,27 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showTranslateSource]);
 
+  // The line hold and the highlight quick action both own the same still press,
+  // so the hold is off while the quick action is armed (the gesture guard is in
+  // useSentenceHold; this keeps the switch honest).
+  const quickActionHighlight =
+    !!viewSettings.enableAnnotationQuickActions &&
+    viewSettings.annotationQuickAction === 'highlight';
+
+  useEffect(() => {
+    if (sentenceTranslateEnabled === (viewSettings.sentenceTranslateEnabled ?? false)) return;
+    saveViewSettings(
+      envConfig,
+      bookKey,
+      'sentenceTranslateEnabled',
+      sentenceTranslateEnabled,
+      true,
+      false,
+    );
+    setViewSettings(bookKey, { ...viewSettings, sentenceTranslateEnabled });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sentenceTranslateEnabled]);
+
   useEffect(() => {
     if (ttsReadAloudText === viewSettings.ttsReadAloudText) return;
     saveViewSettings(envConfig, bookKey, 'ttsReadAloudText', ttsReadAloudText, false, false);
@@ -534,6 +559,17 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
           label={_('Show Source Text')}
           checked={showTranslateSource}
           onChange={() => setShowTranslateSource(!showTranslateSource)}
+        />
+        <SettingsSwitchRow
+          label={_('Translate a Held Line')}
+          description={
+            quickActionHighlight
+              ? _('Turn off the highlight quick action to use this.')
+              : _('Hold a line still to translate that sentence.')
+          }
+          checked={sentenceTranslateEnabled}
+          onChange={() => setSentenceTranslateEnabled(!sentenceTranslateEnabled)}
+          disabled={!bookKey || quickActionHighlight}
         />
         <SettingsRow label={_('TTS Text')} data-setting-id='settings.language.ttsTextTranslation'>
           <SettingsSelect

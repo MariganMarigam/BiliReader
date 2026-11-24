@@ -22,6 +22,12 @@ const h = vi.hoisted(() => ({
   dispatch: vi.fn(),
 }));
 
+// The line-hold hook rides on useTextSelector and uses the translator session;
+// the selection gesture is what these tests exercise, so stub the provider.
+vi.mock('@/hooks/useTranslator', () => ({
+  useTranslator: () => ({ translate: async (input: string[]) => input }),
+}));
+
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ appService: h.appService }),
 }));

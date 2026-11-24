@@ -286,6 +286,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const dictPopupHeight = Math.min(360, maxHeight);
   const transPopupWidth = Math.min(480, maxWidth);
   const transPopupHeight = Math.min(265, maxHeight);
+  const sentencePopupWidth = Math.min(360, maxWidth);
+  const sentencePopupHeight = Math.min(265, maxHeight);
   const proofreadPopupWidth = Math.min(440, maxWidth);
   const proofreadPopupHeight = Math.min(200, maxHeight);
   const canShare = canShareText(appService);
@@ -534,6 +536,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     cancelAutoTurn,
     onAutoTurn,
     turnHint,
+    sentenceHoldState,
+    dismissSentenceHold,
   } = useTextSelector(
     bookKey,
     contentInsets,
@@ -543,6 +547,35 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     getAnnotationText,
     handleDismissPopup,
   );
+
+  // The held line anchors on its own geometry, not on a selection: the point is
+  // already in window coordinates, so only the popup box needs clamping.
+  const sentencePopup = useMemo(() => {
+    if (!sentenceHoldState) return null;
+    const gridFrame = document.querySelector(`#gridcell-${bookKey}`);
+    if (!gridFrame) return null;
+    const { anchor } = sentenceHoldState;
+    const above = anchor.top - 8 - sentencePopupHeight >= popupPadding;
+    const point = { x: anchor.x, y: above ? anchor.top - 8 : anchor.bottom + 8 };
+    const dir: Position['dir'] = above ? 'up' : 'down';
+    const trianglePosition = { point, dir };
+    return {
+      trianglePosition,
+      position: getPopupPosition(
+        trianglePosition,
+        gridFrame.getBoundingClientRect(),
+        sentencePopupWidth,
+        sentencePopupHeight,
+        popupPadding,
+      ),
+    };
+  }, [sentenceHoldState, bookKey, sentencePopupHeight, sentencePopupWidth, popupPadding]);
+
+  // A page turn ends the hold: the popup belongs to the page the line was on.
+  useEffect(() => {
+    dismissSentenceHold();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress?.location]);
 
   const handleDismissPopupAndSelection = () => {
     handleDismissPopup();
@@ -2776,6 +2809,17 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           popupWidth={transPopupWidth}
           popupHeight={transPopupHeight}
           onDismiss={handleDismissPopupShowToolbar}
+        />
+      )}
+      {sentenceHoldState && sentencePopup && (
+        <TranslatorPopup
+          bookKey={bookKey}
+          text={sentenceHoldState.text}
+          position={sentencePopup.position}
+          trianglePosition={sentencePopup.trianglePosition}
+          popupWidth={sentencePopupWidth}
+          popupHeight={sentencePopupHeight}
+          onDismiss={dismissSentenceHold}
         />
       )}
       {noteEditorInSheet && (

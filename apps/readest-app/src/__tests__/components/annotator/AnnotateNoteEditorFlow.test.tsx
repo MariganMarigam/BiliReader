@@ -220,6 +220,8 @@ vi.mock('@/app/reader/hooks/useTextSelector', () => ({
     noteAutoTurnPoint: { current: null },
     cancelAutoTurn: vi.fn(),
     onAutoTurn: vi.fn(),
+    sentenceHoldState: null,
+    dismissSentenceHold: () => {},
   }),
 }));
 

@@ -101,10 +101,13 @@ export const useSentenceHold = (bookKey: string) => {
 
   const viewSettings = getViewSettings(bookKey);
   const book = getBookData(bookKey)?.book;
+  // Instantiated with the gesture even when the feature is off, so the store may
+  // still be short of its read settings; the defaults match the translator's.
+  const readSettings = settings?.globalReadSettings;
   const { translate } = useTranslator({
-    provider: settings.globalReadSettings.translationProvider,
+    provider: readSettings?.translationProvider ?? 'deepl',
     sourceLang: viewSettings?.translateSourceLang ?? 'AUTO',
-    targetLang: settings.globalReadSettings.translateTargetLang,
+    targetLang: readSettings?.translateTargetLang ?? 'EN',
     promptId: viewSettings?.translationPromptId,
     bookTitle: book?.title,
     bookAuthor: book?.author,
@@ -436,5 +439,5 @@ export const useSentenceHold = (bookKey: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookKey]);
 
-  return { arm, onMove, end, cancel, dismiss, state };
+  return { arm, onMove, end, cancel, dismiss, state, isHolding: () => active.current !== null };
 };

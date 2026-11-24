@@ -24,6 +24,7 @@ import {
 } from '@/utils/sel';
 import { Corner, useAutoPageTurn } from './useAutoPageTurn';
 import { useInstantAnnotation } from './useInstantAnnotation';
+import { useSentenceHold } from './useSentenceHold';
 import {
   applyCrossDocSegments,
   buildCrossDocSegments,
@@ -488,6 +489,19 @@ export const useTextSelector = (
     setExternalDragPoint,
   });
 
+  // The held-line gesture rides on this hook's pointer listeners: it decides
+  // when the press may engage (never while the highlight quick action owns the
+  // still hold), and this hook decides what a press means for pagination.
+  const {
+    arm: armSentenceHold,
+    onMove: onSentenceHoldMove,
+    end: endSentenceHold,
+    cancel: cancelSentenceHold,
+    state: sentenceHoldState,
+    dismiss: dismissSentenceHold,
+    isHolding: isSentenceHolding,
+  } = useSentenceHold(bookKey);
+
   const isValidSelection = (sel: Selection) => {
     return sel && sel.toString().trim().length > 0 && sel.rangeCount > 0;
   };
@@ -784,9 +798,14 @@ export const useTextSelector = (
       }
     }
 
+    // Armed after the instant-highlight block: a press that the quick action
+    // consumed never reaches the line hold, and vice versa.
+    const sentenceArmed = !isInstantAnnotating.current && armSentenceHold(doc, index, ev);
+
     // Cross-page drag (#5809): remember where a mouse selection drag starts so
     // it can continue onto an adjacent page iframe.
     if (
+      !sentenceArmed &&
       !isInstantAnnotating.current &&
       ev.pointerType === 'mouse' &&
       ev.button === 0 &&
@@ -832,6 +851,7 @@ export const useTextSelector = (
       y: ev.clientY + (feRect?.top ?? 0),
     };
     maybeCancelInstantHoldOnMove();
+    onSentenceHoldMove(doc, ev);
     if (isInstantAnnotating.current) {
       // In scroll mode, detect gesture direction before committing to annotation.
       // Cancel if the gesture is along the scroll axis (vertical for normal, horizontal
@@ -935,6 +955,7 @@ export const useTextSelector = (
     // (Android fires pointercancel when the browser starts scrolling) keeps its
     // native page-turn instead of being swallowed.
     cancelInstantHold();
+    cancelSentenceHold();
     // In the mobile apps the native-touch bridge reports the real release,
     // even when the webview cancels DOM pointer events during a selection
     // handle drag. Keep the dwell and drag latches until that native release.
@@ -1065,6 +1086,13 @@ export const useTextSelector = (
     mouseDoubleClickRef.current = null;
     dragAnchorRef.current = null;
 
+    // A held line consumes the release: the line and its popup stay, and the
+    // trailing click must not dismiss them (same latch as a selection popup).
+    if (endSentenceHold(doc, index, ev)) {
+      isUpToPopup.current = true;
+      return;
+    }
+
     // Cross-page drag (#5809): the release ends the drag; commit the per-page
     // parts as one selection (re-applied, so a native drag that fought the
     // anchor page's part mid-gesture can't leave it stale).
@@ -1189,6 +1217,7 @@ export const useTextSelector = (
     isTouchStarted.current = false;
     isPointerDown.current = false;
     cancelInstantHold();
+    if (doc && index !== undefined) endSentenceHold(doc, index);
     endSelectionDrag();
     if (!pendingTouchSelection.current) return;
     pendingTouchSelection.current = false;
@@ -1211,6 +1240,7 @@ export const useTextSelector = (
     pendingTouchSelection.current = false;
     endSelectionDrag();
     cancelInstantHold();
+    cancelSentenceHold();
   };
 
   // The corner the latest pointer (pointermove / native touchmove) position is
@@ -1376,6 +1406,11 @@ export const useTextSelector = (
         handleDismissPopup();
         return true;
       }
+      // A tap anywhere in the reading area puts the held line away.
+      if (isSentenceHolding()) {
+        dismissSentenceHold();
+        return true;
+      }
       return false;
     };
 
@@ -1426,5 +1461,7 @@ export const useTextSelector = (
     cancelAutoTurn,
     onAutoTurn: onAfterTurn,
     turnHint,
+    sentenceHoldState,
+    dismissSentenceHold,
   };
 };

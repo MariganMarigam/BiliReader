@@ -1,3 +1,10 @@
+// `src/utils/supabase.ts` builds a client at module scope from the environment.
+// Reader hooks pull it in transitively (via the auth context, which the
+// translator hook uses), so give it throwaway values: no unit test talks to
+// supabase, and importing the module must not throw.
+process.env['NEXT_PUBLIC_SUPABASE_URL'] ||= 'https://test.supabase.co';
+process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ||= 'test-anon-key';
+
 // jsdom does not implement the CSS namespace; foliate-js TTS uses CSS.escape
 // (mark[name="…"] lookups). Provide the standard polyfill so those paths work.
 const globalWithCSS = globalThis as { CSS?: { escape?: (value: string) => string } };
