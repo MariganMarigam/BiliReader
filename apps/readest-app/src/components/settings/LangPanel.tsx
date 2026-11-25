@@ -48,6 +48,7 @@ import {
 } from './primitives';
 import CustomDictionaries from './CustomDictionaries';
 import CustomTranslators from './CustomTranslators';
+import OfflineEnginePanel from './OfflineEnginePanel';
 import WordLensPanel from './WordLensPanel';
 import ColorInput from './theme/ColorInput';
 import { PiTranslate } from 'react-icons/pi';
@@ -652,6 +653,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
                 </button>
               </div>
             </SettingsRow>
+            <OfflineEnginePanel />
           </>
         )}
         <SettingsRow label={_('Translate To')} data-setting-id='settings.language.targetLanguage'>
