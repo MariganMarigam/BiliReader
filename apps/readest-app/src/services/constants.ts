@@ -38,7 +38,7 @@ import {
 import { UserStorageQuota, UserDailyTranslationQuota, UserDailyTTSQuota } from '@/types/quota';
 import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config';
 import { stubTranslation as _ } from '@/utils/misc';
-import { OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from '@/styles/fonts';
+import { OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from '@/styles/offlineFonts';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import {
   DEFAULT_LOCAL_ENDPOINT,

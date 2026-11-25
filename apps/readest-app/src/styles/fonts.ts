@@ -57,8 +57,9 @@ const getFontBaseUrl = () =>
  * unreachable. Nothing here hits the network — the faces resolve from the
  * package itself.
  */
-export const OFFLINE_SERIF_FONT = 'PT Serif (offline)';
-export const OFFLINE_SANS_FONT = 'PT Sans (offline)';
+import { OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from './offlineFonts';
+
+export { OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT };
 
 interface OfflineFontFamily {
   family: string;

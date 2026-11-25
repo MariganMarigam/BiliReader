@@ -14,7 +14,8 @@ import {
   generateLightPalette,
   generateDarkPalette,
 } from '@/styles/themes';
-import { createFontCSS, CustomFont, OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from '@/styles/fonts';
+import { createFontCSS, CustomFont } from '@/styles/fonts';
+import { OFFLINE_SANS_FONT, OFFLINE_SERIF_FONT } from '@/styles/offlineFonts';
 import { isDialogueHighlightActive } from './dialogueHighlight';
 import { readStoredAmbientIsDarkMode } from './ambientLight';
 import { INLINE_FORMATTING_SELECTOR } from './inlineTags';
