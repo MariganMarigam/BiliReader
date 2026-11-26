@@ -318,6 +318,30 @@ export class StarDictReader {
     return undefined;
   }
 
+  /**
+   * Look up every entry sharing a headword (StarDict allows homographs:
+   * `dog` appears once as a noun and once as a verb). Returns them in
+   * `.idx` order. The block starts at the lower bound of the binary
+   * search, so case-insensitive matches stay grouped as well.
+   */
+  async lookupAll(word: string): Promise<StarDictEntry[]> {
+    let lo = 0;
+    let hi = this.idxCount;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const entry = await this.decodeIdxEntry(mid);
+      if (cmpAscii(entry.word, word) < 0) lo = mid + 1;
+      else hi = mid;
+    }
+    const matches: StarDictEntry[] = [];
+    for (let i = lo; i < this.idxCount; i++) {
+      const entry = await this.decodeIdxEntry(i);
+      if (cmpAscii(entry.word, word) !== 0) break;
+      matches.push(entry);
+    }
+    return matches;
+  }
+
   private async ensureSynBuilt(): Promise<void> {
     if (this.synBuilt) return;
     if (!this.synBlob) {

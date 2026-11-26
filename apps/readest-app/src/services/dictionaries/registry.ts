@@ -24,6 +24,7 @@ import { isSystemDictionarySupported } from './systemDictionary';
 import { wiktionaryProvider } from './providers/wiktionaryProvider';
 import { wikipediaProvider } from './providers/wikipediaProvider';
 import { contextProvider } from './providers/contextProvider';
+import { freedictEngRusProvider } from './providers/freedictProvider';
 import { createStarDictProvider, type DictionaryFileOpener } from './providers/starDictProvider';
 import { createMdictProvider } from './providers/mdictProvider';
 import { createDictProvider } from './providers/dictProvider';
@@ -48,6 +49,9 @@ interface RegistryArgs {
 }
 
 const builtinFor = (id: string): DictionaryProvider | undefined => {
+  // Offline bundle first: callers that order their own list still get the
+  // same singleton, and it is never fetched from the network.
+  if (id === BUILTIN_PROVIDER_IDS.freedictEngRus) return freedictEngRusProvider;
   if (id === BUILTIN_PROVIDER_IDS.wiktionary) return wiktionaryProvider;
   if (id === BUILTIN_PROVIDER_IDS.wikipedia) return wikipediaProvider;
   if (id === BUILTIN_PROVIDER_IDS.context) return contextProvider;

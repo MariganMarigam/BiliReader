@@ -122,6 +122,7 @@ const builtinWebLabel = (id: string, _: (key: string) => string): string => {
 };
 
 const builtinLabel = (id: string, _: (key: string) => string): string => {
+  if (id === BUILTIN_PROVIDER_IDS.freedictEngRus) return _('FreeDict EN–RU');
   if (id === BUILTIN_PROVIDER_IDS.wiktionary) return _('Wiktionary');
   if (id === BUILTIN_PROVIDER_IDS.wikipedia) return _('Wikipedia');
   if (id === BUILTIN_PROVIDER_IDS.context) return _('Context Dictionary');

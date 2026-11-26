@@ -249,6 +249,8 @@ export interface DictionarySettings {
 
 /** Stable ids for the built-in providers. */
 export const BUILTIN_PROVIDER_IDS = {
+  /** Bundled FreeDict English→Russian StarDict, served from static assets. */
+  freedictEngRus: 'builtin:freedict-eng-rus',
   wiktionary: 'builtin:wiktionary',
   wikipedia: 'builtin:wikipedia',
   /** AI explanation of the selection in its passage, via a custom LLM translator (#5544). */

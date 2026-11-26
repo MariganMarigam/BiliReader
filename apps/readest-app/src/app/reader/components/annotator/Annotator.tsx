@@ -22,6 +22,11 @@ import { useNotebookStore } from '@/store/notebookStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 import { isSystemDictionaryEnabled } from '@/services/dictionaries/registry';
+import {
+  isLocalDictionaryEnabled,
+  isSingleWordSelection,
+  routeSingleWordSelection,
+} from '@/services/dictionaries/wordLookup';
 import { invokeSystemDictionary } from '@/services/dictionaries/systemDictionary';
 import { buildSelectionContext } from '@/services/dictionaries/contextDictionary';
 import type { DictionarySelectionContext } from '@/services/dictionaries/types';
@@ -1988,7 +1993,26 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     if (!selection || !selection.text) return;
     setShowAnnotPopup(false);
     void suppressNativeSelectionHandles();
-    setShowDeepLPopup(true);
+    // One word? The bundled offline dictionary answers first (exact match,
+    // then lemmatizer). Only a miss falls through to the existing MT path.
+    // Phrases keep the translator immediately.
+    const text = selection.text;
+    const lang = bookData.bookDoc?.metadata.language as string | undefined;
+    const dictSettings = useCustomDictionaryStore.getState().settings;
+    // Phrases and disabled/missing providers keep the old synchronous path
+    // so the popup opens in the same tick as the action.
+    if (!isSingleWordSelection(text) || !isLocalDictionaryEnabled(dictSettings)) {
+      setShowDeepLPopup(true);
+      return;
+    }
+    void routeSingleWordSelection(text, lang, undefined, dictSettings).then((result) => {
+      if (result.route === 'dictionary') {
+        setShowDeepLPopup(false);
+        setShowDictionaryPopup(true);
+      } else {
+        setShowDeepLPopup(true);
+      }
+    });
   };
 
   // `oneTime` is required rather than defaulted: it decides whether this reads

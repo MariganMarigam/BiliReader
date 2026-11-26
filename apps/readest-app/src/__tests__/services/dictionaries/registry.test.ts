@@ -28,6 +28,30 @@ describe('dictionary registry', () => {
     ]);
   });
 
+  it('exposes the bundled FreeDict provider ahead of network providers', () => {
+    const providers = getEnabledProviders({
+      settings: {
+        providerOrder: [
+          BUILTIN_PROVIDER_IDS.freedictEngRus,
+          BUILTIN_PROVIDER_IDS.wiktionary,
+          BUILTIN_PROVIDER_IDS.wikipedia,
+        ],
+        providerEnabled: {
+          [BUILTIN_PROVIDER_IDS.freedictEngRus]: true,
+          [BUILTIN_PROVIDER_IDS.wiktionary]: true,
+          [BUILTIN_PROVIDER_IDS.wikipedia]: true,
+        },
+      },
+      dictionaries: [],
+    });
+    expect(providers.map((p) => p.id)).toEqual([
+      BUILTIN_PROVIDER_IDS.freedictEngRus,
+      BUILTIN_PROVIDER_IDS.wiktionary,
+      BUILTIN_PROVIDER_IDS.wikipedia,
+    ]);
+    expect(providers[0]!.kind).toBe('stardict');
+  });
+
   it('skips providers explicitly disabled', () => {
     const providers = getEnabledProviders({
       settings: {

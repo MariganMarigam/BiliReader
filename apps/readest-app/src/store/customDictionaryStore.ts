@@ -36,6 +36,9 @@ const BUILTIN_WEB_ORDER = [
 
 const DEFAULT_DICTIONARY_SETTINGS: DictionarySettings = {
   providerOrder: [
+    // Bundled offline dictionary leads: a single-word lookup should hit it
+    // before any network provider. Users can reorder or disable it.
+    BUILTIN_PROVIDER_IDS.freedictEngRus,
     BUILTIN_PROVIDER_IDS.systemDictionary,
     BUILTIN_PROVIDER_IDS.wiktionary,
     BUILTIN_PROVIDER_IDS.wikipedia,
@@ -43,6 +46,7 @@ const DEFAULT_DICTIONARY_SETTINGS: DictionarySettings = {
     ...BUILTIN_WEB_ORDER,
   ],
   providerEnabled: {
+    [BUILTIN_PROVIDER_IDS.freedictEngRus]: true,
     // System dictionary is opt-in — enabling it disables the rest (and
     // vice versa) via the settings UI's exclusivity rule. Default off
     // so existing users see no behavior change on upgrade.
@@ -621,7 +625,11 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
         : [...DEFAULT_DICTIONARY_SETTINGS.providerOrder];
       for (const id of DEFAULT_DICTIONARY_SETTINGS.providerOrder) {
         if (!orderSet.has(id)) {
-          merged.push(id);
+          // The bundled offline dictionary must lead even for users whose
+          // persisted order predates it; the other new defaults (web
+          // searches) stay appended as before.
+          if (id === BUILTIN_PROVIDER_IDS.freedictEngRus) merged.unshift(id);
+          else merged.push(id);
           orderSet.add(id);
         }
       }
