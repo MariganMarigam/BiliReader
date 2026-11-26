@@ -22,8 +22,8 @@ const TOKEN_EVENT: &str = "translation://token";
 /// (`BIREADER_MODELS_DIR`, else the per-user data directory).
 /// `BIREADER_MODEL_PATH` overrides the resolved GGUF path.
 #[tauri::command]
-pub async fn local_engine_status(
-    app: tauri::AppHandle,
+pub async fn local_engine_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, TranslationCore>,
     models_dir: String,
 ) -> Result<CoreStatus, String> {
@@ -43,8 +43,8 @@ pub async fn local_engine_status(
 
 /// Translate one text locally, streaming pieces on `translation://token`.
 #[tauri::command]
-pub async fn translate_local(
-    app: tauri::AppHandle,
+pub async fn translate_local<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, TranslationCore>,
     job_id: String,
     text: String,
