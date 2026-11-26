@@ -11,7 +11,10 @@ const validEntry = (overrides: Record<string, unknown> = {}): Record<string, unk
   id: 'hy-mt2-1.8b-q4_k_m',
   kind: 'translation',
   lang_pair: 'en-ru',
-  url: 'https://github.com/o/r/releases/download/models-v1/Hy-MT2-1.8B-Q4_K_M.gguf',
+  urls: [
+    'https://huggingface.co/o/r/resolve/0123456789abcdef/Hy-MT2-1.8B-Q4_K_M.gguf',
+    'https://github.com/o/r/releases/download/models-v1/Hy-MT2-1.8B-Q4_K_M.gguf',
+  ],
   size_bytes: 1133080448,
   sha256: 'dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699',
   license: 'Apache-2.0',
@@ -36,6 +39,8 @@ describe('parseModelManifest', () => {
     expect(entry!.size_bytes).toBe(1133080448);
     expect(entry!.license).toBe('Apache-2.0');
     expect(entry!.min_ram_mb).toBeGreaterThan(0);
+    expect(entry!.urls).toHaveLength(1);
+    expect(entry!.urls[0]).toMatch(/^https:\/\/huggingface\.co\//);
   });
 
   it('normalises the checksum to lowercase and defaults the version', () => {
@@ -53,7 +58,13 @@ describe('parseModelManifest', () => {
   it.each([
     ['a short checksum', validManifest([validEntry({ sha256: 'dc5f44fc' })])],
     ['a zero size', validManifest([validEntry({ size_bytes: 0 })])],
-    ['a relative url', validManifest([validEntry({ url: '/models/model.gguf' })])],
+    ['a relative url', validManifest([validEntry({ urls: ['/models/model.gguf'] })])],
+    ['an empty urls array', validManifest([validEntry({ urls: [] })])],
+    ['a non-string fallback', validManifest([validEntry({ urls: ['https://a/x.gguf', 42] })])],
+    [
+      'a repeated url',
+      validManifest([validEntry({ urls: ['https://a/x.gguf', 'https://a/x.gguf'] })]),
+    ],
     ['an unknown kind', validManifest([validEntry({ kind: 'llm' })])],
     ['a missing display name', validManifest([validEntry({ display_name: '' })])],
     ['a non-array models field', { version: 1, models: {} }],

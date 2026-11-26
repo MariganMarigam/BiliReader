@@ -204,13 +204,13 @@ export const managedModelsDir = async (appService: AppService): Promise<string> 
   appService.resolveFilePath(MODELS_SUBDIR, 'Data');
 
 /** Release assets must keep Rust's `MODEL_FILENAME` or the engine won't find them. */
-export const modelFileName = (entry: Pick<ModelEntry, 'id' | 'url'>): string => {
-  const base = entry.url.split('/').pop()?.split('?')[0] ?? '';
+export const modelFileName = (entry: Pick<ModelEntry, 'id' | 'urls'>): string => {
+  const base = entry.urls[0]?.split('/').pop()?.split('?')[0] ?? '';
   return base && base !== entry.id ? base : `${entry.id}.gguf`;
 };
 
 /** Absolute path of an installed model (`pathFor` from the model-manager spec). */
-export const pathFor = (modelsDir: string, entry: Pick<ModelEntry, 'id' | 'url'>): string =>
+export const pathFor = (modelsDir: string, entry: Pick<ModelEntry, 'id' | 'urls'>): string =>
   `${modelsDir.replace(/\/+$/, '')}/${modelFileName(entry)}`;
 
 const withDeps = (override?: Partial<ModelDeps>): ModelDeps => ({
@@ -277,7 +277,9 @@ const toInstallError = (error: unknown, signal?: AbortSignal): ModelInstallError
   if (/no space|enospc|disk full|quota/i.test(message)) {
     return new ModelInstallError('disk', `Not enough disk space: ${message}`, error);
   }
-  if (/forbidden|not allowed|scope|permission denied/i.test(message)) {
+  // Deliberately not a bare `forbidden`: an HTTP 403 is a source failure, not
+  // a filesystem-scope one.
+  if (/forbidden path|path forbidden|not allowed|scope|permission denied/i.test(message)) {
     return new ModelInstallError(
       'disk',
       `The app may not write to the models folder: ${message}`,
@@ -367,6 +369,11 @@ export const scan = async (options: {
  * requested with `Range: bytes=<have>-` into `.tmp/<id>.part.tail`, then merged
  * in bounded chunks. A failed attempt therefore never truncates progress and a
  * half-written file is never renamed into place.
+ *
+ * Failover: sources are tried in `entry.urls` order. A network error (including
+ * 403/404), a short download or a checksum mismatch moves on to the next URL;
+ * bytes are only resumed within the same URL, so switching sources restarts at
+ * zero unless the part already hashes to the expected asset.
  */
 export const install = async (options: {
   entry: ModelEntry;
@@ -407,13 +414,24 @@ export const install = async (options: {
   await fs.mkdirp(dir);
   await fs.mkdirp(tmpDir);
 
-  let have = (await fs.exists(part)) ? await fs.size(part) : 0;
-  if (have > total) {
-    await fs.remove(part);
-    have = 0;
-  }
+  const partSize = async (): Promise<number> => ((await fs.exists(part)) ? fs.size(part) : 0);
 
-  if (have < total) {
+  /** True when the part already holds the whole, correctly hashed asset. */
+  const partIsVerified = async (): Promise<boolean> => {
+    if (!(await fs.exists(part))) return false;
+    if ((await fs.size(part)) !== total) return false;
+    return (await sha256OfFile(fs, part, total)) === entry.sha256;
+  };
+
+  /** Stream one source into `.part`, resuming only bytes from that same source. */
+  const downloadFrom = async (url: string): Promise<void> => {
+    let have = await partSize();
+    if (have > total) {
+      await fs.remove(part);
+      have = 0;
+    }
+    if (have === total) return;
+
     const free = await deps.freeSpace();
     if (free !== null && free < total - have) {
       throw new ModelInstallError(
@@ -435,7 +453,7 @@ export const install = async (options: {
         const headers = await deps.download({
           appService: options.appService,
           dst: tail,
-          url: entry.url,
+          url,
           headers: { Range: `bytes=${have}-` },
           singleThreaded: true,
           onProgress: (payload) => report(payload, have),
@@ -452,7 +470,7 @@ export const install = async (options: {
         await deps.download({
           appService: options.appService,
           dst: part,
-          url: entry.url,
+          url,
           singleThreaded: true,
           onProgress: (payload) => report(payload, 0),
         });
@@ -462,26 +480,47 @@ export const install = async (options: {
       throw toInstallError(error, signal);
     }
 
-    have = (await fs.exists(part)) ? await fs.size(part) : 0;
-    if (have !== total) {
+    const downloaded = await partSize();
+    if (downloaded !== total) {
       throw new ModelInstallError(
         'network',
-        `Download incomplete: ${have} of ${total} bytes. Retry to resume.`,
+        `Download incomplete: ${downloaded} of ${total} bytes. Retry to resume.`,
       );
     }
-  }
+  };
 
-  signal?.throwIfAborted();
-  options.onProgress?.({ downloaded: total, total, speed: 0 });
+  let lastError: ModelInstallError | null = null;
+  for (const [index, url] of entry.urls.entries()) {
+    try {
+      if (index > 0 && !(await partIsVerified())) {
+        // Never append bytes from one host to another's; keep the part only if
+        // it is already the verified asset.
+        await fs.remove(part).catch(() => undefined);
+        await fs.remove(tail).catch(() => undefined);
+      }
 
-  const digest = await sha256OfFile(fs, part, total);
-  if (digest !== entry.sha256) {
-    await fs.remove(part).catch(() => undefined);
-    throw new ModelInstallError(
-      'checksum',
-      `Checksum mismatch for ${entry.id}: expected ${entry.sha256}, got ${digest}`,
-    );
+      signal?.throwIfAborted();
+      await downloadFrom(url);
+      signal?.throwIfAborted();
+      options.onProgress?.({ downloaded: total, total, speed: 0 });
+
+      const digest = await sha256OfFile(fs, part, total);
+      if (digest !== entry.sha256) {
+        await fs.remove(part).catch(() => undefined);
+        throw new ModelInstallError(
+          'checksum',
+          `Checksum mismatch for ${entry.id}: expected ${entry.sha256}, got ${digest}`,
+        );
+      }
+      lastError = null;
+      break;
+    } catch (error) {
+      const failure = toInstallError(error, signal);
+      if (failure.code !== 'network' && failure.code !== 'checksum') throw failure;
+      lastError = failure;
+    }
   }
+  if (lastError) throw lastError;
 
   await fs.rename(part, destination);
   await fs.remove(tmpDir, true).catch(() => undefined);

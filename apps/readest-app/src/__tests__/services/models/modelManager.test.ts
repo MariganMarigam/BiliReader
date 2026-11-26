@@ -36,11 +36,14 @@ const content = (() => {
 
 const shaOf = (bytes: Uint8Array): string => bytesToHex(sha256(bytes));
 
+const PRIMARY = `https://huggingface.co/o/r/resolve/0123456789abcdef/${MODEL_FILE}`;
+const FALLBACK = `https://github.com/o/r/releases/download/models-v1/${MODEL_FILE}`;
+
 const entry = (overrides: Partial<ModelEntry> = {}): ModelEntry => ({
   id: 'hy-mt2-1.8b-q4_k_m',
   kind: 'translation',
   lang_pair: 'en-ru',
-  url: `https://github.com/o/r/releases/download/models-v1/${MODEL_FILE}`,
+  urls: [FALLBACK],
   size_bytes: content.length,
   sha256: shaOf(content),
   license: 'Apache-2.0',
@@ -106,41 +109,52 @@ interface SimulatedDownload {
   failAfter?: number;
   ignoreRange?: boolean;
   error?: Error;
+  /** Serves content of the right length with the first byte flipped. */
+  corrupt?: boolean;
 }
 
-const makeDownloader = (
+const makeRoutingDownloader = (
   fs: MemoryFs,
-  opts: SimulatedDownload = {},
-): ModelDownloader & { calls: Array<{ dst: string; range?: string }> } => {
-  const calls: Array<{ dst: string; range?: string }> = [];
+  behavior: (url: string) => SimulatedDownload,
+): ModelDownloader & { calls: Array<{ url: string; dst: string; range?: string }> } => {
+  const calls: Array<{ url: string; dst: string; range?: string }> = [];
   const downloader = async ({
+    url,
     dst,
     headers,
     onProgress,
   }: {
+    url: string;
     dst: string;
     headers?: Record<string, string>;
     onProgress?: (payload: ProgressPayload) => void;
   }): Promise<Record<string, string> | undefined> => {
+    const opts = behavior(url);
     const range = headers?.['Range'];
-    calls.push({ dst, range });
+    calls.push({ url, dst, range });
     if (opts.error) throw opts.error;
+    let bytes = content;
+    if (opts.corrupt) {
+      bytes = content.slice();
+      bytes[0] = (bytes[0]! + 1) % 256;
+    }
     const start = opts.ignoreRange || !range ? 0 : Number(/bytes=(\d+)-/.exec(range)![1]);
     const end =
-      opts.failAfter !== undefined
-        ? Math.min(content.length, start + opts.failAfter)
-        : content.length;
-    fs.write(dst, content.subarray(start, end));
-    onProgress?.({ progress: end - start, total: content.length, transferSpeed: 1 });
+      opts.failAfter !== undefined ? Math.min(bytes.length, start + opts.failAfter) : bytes.length;
+    fs.write(dst, bytes.subarray(start, end));
+    onProgress?.({ progress: end - start, total: bytes.length, transferSpeed: 1 });
     if (opts.failAfter !== undefined) throw new Error('NetworkError: connection lost');
     const responseHeaders: Record<string, string> = {};
     if (range && !opts.ignoreRange) {
-      responseHeaders['content-range'] = `bytes ${start}-${content.length - 1}/${content.length}`;
+      responseHeaders['content-range'] = `bytes ${start}-${bytes.length - 1}/${bytes.length}`;
     }
     return responseHeaders;
   };
   return Object.assign(downloader, { calls });
 };
+
+const makeDownloader = (fs: MemoryFs, opts: SimulatedDownload = {}) =>
+  makeRoutingDownloader(fs, () => opts);
 
 const engineStatus = (
   ready: boolean,
@@ -171,7 +185,9 @@ describe('pathFor', () => {
   it('names the file after the release asset so Rust finds it', () => {
     expect(pathFor(MODELS_DIR, entry())).toBe(`${MODELS_DIR}/${MODEL_FILE}`);
     expect(pathFor(`${MODELS_DIR}/`, entry())).toBe(`${MODELS_DIR}/${MODEL_FILE}`);
-    expect(pathFor(MODELS_DIR, { id: 'x', url: 'https://h/x.gguf' })).toBe(`${MODELS_DIR}/x.gguf`);
+    expect(pathFor(MODELS_DIR, { id: 'x', urls: ['https://h/x.gguf'] })).toBe(
+      `${MODELS_DIR}/x.gguf`,
+    );
   });
 });
 
@@ -194,6 +210,79 @@ describe('install', () => {
     expect(bytesToHex(sha256(fs.files.get(result.path)!))).toBe(entry().sha256);
     expect(fs.files.has(`${MODELS_DIR}/.tmp/${entry().id}.part`)).toBe(false);
     expect(progress.at(-1)).toBe(content.length);
+  });
+
+  it('uses the first source and never contacts the fallback', async () => {
+    const fs = new MemoryFs();
+    const download = makeRoutingDownloader(fs, () => ({}));
+
+    const result = await install({
+      entry: entry({ urls: [PRIMARY, FALLBACK] }),
+      modelsDir: MODELS_DIR,
+      appService,
+      deps: baseDeps(fs, download),
+    });
+
+    expect(download.calls.map((call) => call.url)).toEqual([PRIMARY]);
+    expect(result.path).toBe(`${MODELS_DIR}/${MODEL_FILE}`);
+    expect(fs.files.has(`${MODELS_DIR}/${MODEL_FILE}`)).toBe(true);
+  });
+
+  it('restarts from the next source when the first dies mid-download', async () => {
+    const fs = new MemoryFs();
+    const download = makeRoutingDownloader(fs, (url) =>
+      url === PRIMARY ? { failAfter: 1800 } : {},
+    );
+
+    const result = await install({
+      entry: entry({ urls: [PRIMARY, FALLBACK] }),
+      modelsDir: MODELS_DIR,
+      appService,
+      deps: baseDeps(fs, download),
+    });
+
+    expect(download.calls.map((call) => call.url)).toEqual([PRIMARY, FALLBACK]);
+    // Bytes from one host are never appended to bytes from another.
+    expect(download.calls[1]!.range).toBeUndefined();
+    expect(bytesToHex(sha256(fs.files.get(result.path)!))).toBe(entry().sha256);
+  });
+
+  it('fails with the last source error when every source fails', async () => {
+    const fs = new MemoryFs();
+    const download = makeRoutingDownloader(fs, (url) =>
+      url === PRIMARY
+        ? { error: new Error('404 Not Found') }
+        : { error: new Error('403 Forbidden') },
+    );
+
+    await expect(
+      install({
+        entry: entry({ urls: [PRIMARY, FALLBACK] }),
+        modelsDir: MODELS_DIR,
+        appService,
+        deps: baseDeps(fs, download),
+      }),
+    ).rejects.toMatchObject({ code: 'network' });
+
+    expect(download.calls.map((call) => call.url)).toEqual([PRIMARY, FALLBACK]);
+    expect(fs.files.has(`${MODELS_DIR}/${MODEL_FILE}`)).toBe(false);
+  });
+
+  it('retries the fallback when the first source serves a corrupt file', async () => {
+    const fs = new MemoryFs();
+    const download = makeRoutingDownloader(fs, (url) => (url === PRIMARY ? { corrupt: true } : {}));
+
+    const result = await install({
+      entry: entry({ urls: [PRIMARY, FALLBACK] }),
+      modelsDir: MODELS_DIR,
+      appService,
+      deps: baseDeps(fs, download),
+    });
+
+    expect(download.calls.map((call) => call.url)).toEqual([PRIMARY, FALLBACK]);
+    // The corrupt part is discarded, so the fallback starts at zero.
+    expect(download.calls[1]!.range).toBeUndefined();
+    expect(bytesToHex(sha256(fs.files.get(result.path)!))).toBe(entry().sha256);
   });
 
   it('resumes an interrupted download with a Range request', async () => {

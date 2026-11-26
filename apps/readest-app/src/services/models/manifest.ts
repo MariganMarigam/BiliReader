@@ -19,8 +19,11 @@ export interface ModelEntry {
   kind: ModelKind;
   /** Language pair the model covers, e.g. `en-ru`. */
   lang_pair: string;
-  /** Absolute HTTPS URL of the asset in a GitHub Release. */
-  url: string;
+  /**
+   * Absolute HTTPS URLs of the same asset: the first is primary, the rest are
+   * fallbacks tried in order when a source fails.
+   */
+  urls: string[];
   size_bytes: number;
   /** Lowercase hex SHA-256 of the asset, verified before the file is used. */
   sha256: string;
@@ -55,6 +58,26 @@ const readString = (raw: Record<string, unknown>, field: string, where: string):
   return value;
 };
 
+const readUrls = (raw: Record<string, unknown>, field: string, where: string): string[] => {
+  const value = raw[field];
+  if (!Array.isArray(value) || value.length === 0) {
+    return fail(`${where}.${field} must be a non-empty array of URLs`);
+  }
+  const urls = value.map((item, index) => {
+    if (typeof item !== 'string' || item.trim() === '') {
+      return fail(`${where}.${field}[${index}] must be a non-empty string`);
+    }
+    if (!/^https?:\/\//i.test(item)) {
+      return fail(`${where}.${field}[${index}] must be an absolute http(s) URL`);
+    }
+    return item;
+  });
+  if (new Set(urls).size !== urls.length) {
+    return fail(`${where}.${field} must not repeat a URL`);
+  }
+  return urls;
+};
+
 const readPositiveInt = (raw: Record<string, unknown>, field: string, where: string): number => {
   const value = raw[field];
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
@@ -72,8 +95,7 @@ const parseEntry = (raw: unknown, index: number): ModelEntry => {
   if (!(MODEL_KINDS as readonly string[]).includes(kind)) {
     return fail(`${where}.kind must be one of ${MODEL_KINDS.join(', ')}`);
   }
-  const url = readString(raw, 'url', where);
-  if (!/^https?:\/\//i.test(url)) return fail(`${where}.url must be an absolute http(s) URL`);
+  const urls = readUrls(raw, 'urls', where);
   const sha256 = readString(raw, 'sha256', where).toLowerCase();
   if (!SHA256_HEX.test(sha256)) return fail(`${where}.sha256 must be 64 hex characters`);
 
@@ -81,7 +103,7 @@ const parseEntry = (raw: unknown, index: number): ModelEntry => {
     id,
     kind: kind as ModelKind,
     lang_pair: readString(raw, 'lang_pair', where),
-    url,
+    urls,
     size_bytes: readPositiveInt(raw, 'size_bytes', where),
     sha256,
     license: readString(raw, 'license', where),
