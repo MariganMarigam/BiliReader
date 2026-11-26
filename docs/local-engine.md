@@ -24,7 +24,7 @@ Resolution order in `translation_core::resolve_model_path`:
 1. `BIREADER_MODEL_PATH` (file path) — used by tests and dev runs;
 2. `<models_dir>/Hy-MT2-1.8B-Q4_K_M.gguf` — what the app passes;
 3. an empty `models_dir` in `local_engine_status` means
-   `/home/codexrescriptus/.local/share/bilireader/models`.
+   `$HOME/.local/share/bilireader/models`.
 
 ## Threading
 
@@ -119,7 +119,7 @@ hop, no port, no side-car supervision — not RAM.
 ```sh
 cd apps/readest-app/src-tauri
 CARGO_PROFILE_DEV_DEBUG=0 \
-BIREADER_MODEL_PATH=/home/codexrescriptus/.local/share/bilireader/models/Hy-MT2-1.8B-Q4_K_M.gguf \
+BIREADER_MODEL_PATH="$HOME/.local/share/bilireader/models/Hy-MT2-1.8B-Q4_K_M.gguf" \
 cargo test -p Readest translation_core -- --nocapture
 ```
 
